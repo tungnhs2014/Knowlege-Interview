@@ -65,12 +65,12 @@
 
 | # | Topic | TLPI | DevLinux | Status | Knowledge Doc |
 |---|-------|------|----------|--------|---------------|
-| 2.1 | File I/O Universal Model — `open/read/write/close`, FD | Ch04 | 02 | ⬜ | — |
-| 2.2 | File I/O Further Details — `fcntl()`, scatter-gather, `pread/pwrite` | Ch05 | 02 | ⬜ | — |
-| 2.3 | File I/O Buffering — kernel buffer, stdio buffer, `fsync()`, `O_DIRECT` | Ch13 | 02 | ⬜ | — |
-| 2.4 | File Systems & Inodes — VFS, ext4, inode, mount | Ch14 | 02 | ⬜ | — |
-| 2.5 | File Attributes & Permissions — `stat()`, `chmod()`, `umask`, sticky bit | Ch15 | 02 | ⬜ | — |
-| 2.6 | Directories & Links — hard link, symlink, `opendir/readdir`, `chroot()` | Ch18 | 02 | ⬜ | — |
+| 2.1 | File I/O Universal Model — `open/read/write/close`, FD | Ch04 | 02 | ✅ | [ch02_file_io_core.md](knowledge/linux_system/ch02_file_io_core.md) |
+| 2.2 | File I/O Further Details — `fcntl()`, scatter-gather, `pread/pwrite` | Ch05 | 02 | ✅ | [ch02_file_io_core.md](knowledge/linux_system/ch02_file_io_core.md) |
+| 2.3 | File I/O Buffering — kernel buffer, stdio buffer, `fsync()`, `O_DIRECT` | Ch13 | 02 | ✅ | [ch02_file_io_core.md](knowledge/linux_system/ch02_file_io_core.md) |
+| 2.4 | File Systems & Inodes — VFS, ext4, inode, mount | Ch14 | 02 | ✅ | [ch02_file_system.md](knowledge/linux_system/ch02_file_system.md) |
+| 2.5 | File Attributes & Permissions — `stat()`, `chmod()`, `umask`, sticky bit | Ch15 | 02 | ✅ | [ch02_file_system.md](knowledge/linux_system/ch02_file_system.md) |
+| 2.6 | Directories & Links — hard link, symlink, `opendir/readdir`, `chroot()` | Ch18 | 02 | ✅ | [ch02_file_system.md](knowledge/linux_system/ch02_file_system.md) |
 | 2.7 | File Locking — `flock()`, `fcntl()` record locking | Ch55 | 02 | ⬜ | — |
 | 2.8 | Monitoring File Events — `inotify` | Ch19 | — | ⬜ | — |
 | 2.9 | Extended Attributes & ACL — `setxattr()`, `getfacl/setfacl` | Ch16, Ch17 | — | ⬜ | — |
