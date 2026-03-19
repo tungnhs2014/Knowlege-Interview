@@ -21,7 +21,7 @@
 |---------|----------|----------|--------|
 | 0 — History & Context | 1 | 🔵 context | ✅ |
 | 1 — Nền tảng | 5 | 🔴 bắt buộc | ✅ |
-| 2 — File I/O | 9 | 🔴 bắt buộc | ⬜ |
+| 2 — File I/O | 9 | 🔴 bắt buộc | ✅ |
 | 3 — Process | 11 | 🔴 core Embedded | ⬜ |
 | 4 — Signals | 5 | 🔴 core Embedded | ⬜ |
 | 5 — Memory | 3 | 🔴 core Embedded | ⬜ |
@@ -71,9 +71,9 @@
 | 2.4 | File Systems & Inodes — VFS, ext4, inode, mount | Ch14 | 02 | ✅ | [ch02_file_system.md](knowledge/linux_system/ch02_file_system.md) |
 | 2.5 | File Attributes & Permissions — `stat()`, `chmod()`, `umask`, sticky bit | Ch15 | 02 | ✅ | [ch02_file_system.md](knowledge/linux_system/ch02_file_system.md) |
 | 2.6 | Directories & Links — hard link, symlink, `opendir/readdir`, `chroot()` | Ch18 | 02 | ✅ | [ch02_file_system.md](knowledge/linux_system/ch02_file_system.md) |
-| 2.7 | File Locking — `flock()`, `fcntl()` record locking | Ch55 | 02 | ⬜ | — |
-| 2.8 | Monitoring File Events — `inotify` | Ch19 | — | ⬜ | — |
-| 2.9 | Extended Attributes & ACL — `setxattr()`, `getfacl/setfacl` | Ch16, Ch17 | — | ⬜ | — |
+| 2.7 | File Locking — `flock()`, `fcntl()` record locking | Ch55 | 02 | ✅ | [ch02_file_advanced.md](knowledge/linux_system/ch02_file_advanced.md) |
+| 2.8 | Monitoring File Events — `inotify` | Ch19 | — | ✅ | [ch02_file_advanced.md](knowledge/linux_system/ch02_file_advanced.md) |
+| 2.9 | Extended Attributes & ACL — `setxattr()`, `getfacl/setfacl` | Ch16, Ch17 | — | ✅ | [ch02_file_advanced.md](knowledge/linux_system/ch02_file_advanced.md) |
 
 ---
 
