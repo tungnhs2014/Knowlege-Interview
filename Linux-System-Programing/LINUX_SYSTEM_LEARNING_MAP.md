@@ -22,7 +22,7 @@
 | 0 — History & Context | 1 | 🔵 context | ✅ |
 | 1 — Nền tảng | 5 | 🔴 bắt buộc | ✅ |
 | 2 — File I/O | 9 | 🔴 bắt buộc | ✅ |
-| 3 — Process | 11 | 🔴 core Embedded | ⬜ |
+| 3 — Process | 11 | 🔴 core Embedded | ✅ |
 | 4 — Signals | 5 | 🔴 core Embedded | ⬜ |
 | 5 — Memory | 3 | 🔴 core Embedded | ⬜ |
 | 6 — Threads | 5 | 🔴 concurrency | ⬜ |
@@ -81,17 +81,17 @@
 
 | # | Topic | TLPI | DevLinux | Status | Knowledge Doc |
 |---|-------|------|----------|--------|---------------|
-| 3.1 | Process Fundamentals — PID, memory layout, environment | Ch06 | 03 | ⬜ | — |
-| 3.2 | Process Creation — `fork()`, copy-on-write, file sharing | Ch24 | 03 | ⬜ | — |
-| 3.3 | Process Termination — `exit()`, `_exit()`, `atexit()` | Ch25 | 03 | ⬜ | — |
-| 3.4 | Monitoring Child Processes — `wait/waitpid`, zombie, orphan | Ch26 | 03 | ⬜ | — |
-| 3.5 | Program Execution — `exec()` family, `system()`, scripts | Ch27 | 03 | ⬜ | — |
-| 3.6 | Process Creation in Detail — `clone()`, fork/exec attributes | Ch28 | — | ⬜ | — |
-| 3.7 | Process Groups, Sessions & Job Control — `setsid()`, `SIGHUP` | Ch34 | — | ⬜ | — |
-| 3.8 | Process Credentials — real/effective UID/GID, `setuid()` | Ch09 | — | ✅ | [ch01_users_and_groups.md](knowledge/linux_system/ch01_users_and_groups.md) |
-| 3.9 | Daemons — daemon creation, `syslog()` | Ch37 | — | ⬜ | — |
-| 3.10 | Process Priorities & Scheduling — `SCHED_FIFO`, `SCHED_RR`, `nice` | Ch35 | — | ⬜ | — |
-| 3.11 | Process Resources & Limits — `rlimit`, `getrusage()` | Ch36 | — | ⬜ | — |
+| 3.1 | Process Fundamentals — PID, memory layout, environment | Ch06 | 03 | ✅ | [ch03_process_core.md](knowledge/linux_system/ch03_process_core.md) |
+| 3.2 | Process Creation — `fork()`, copy-on-write, file sharing | Ch24 | 03 | ✅ | [ch03_process_core.md](knowledge/linux_system/ch03_process_core.md) |
+| 3.3 | Process Termination — `exit()`, `_exit()`, `atexit()` | Ch25 | 03 | ✅ | [ch03_process_core.md](knowledge/linux_system/ch03_process_core.md) |
+| 3.4 | Monitoring Child Processes — `wait/waitpid`, zombie, orphan | Ch26 | 03 | ✅ | [ch03_process_execution.md](knowledge/linux_system/ch03_process_execution.md) |
+| 3.5 | Program Execution — `exec()` family, `system()`, scripts | Ch27 | 03 | ✅ | [ch03_process_execution.md](knowledge/linux_system/ch03_process_execution.md) |
+| 3.6 | Process Creation in Detail — `clone()`, fork/exec attributes | Ch28 | — | ✅ | [ch03_process_execution.md](knowledge/linux_system/ch03_process_execution.md) |
+| 3.7 | Process Groups, Sessions & Job Control — `setsid()`, `SIGHUP` | Ch34 | — | ✅ | [ch03_process_advanced.md](knowledge/linux_system/ch03_process_advanced.md) |
+| 3.8 | Process Credentials — real/effective UID/GID, `setuid()` | Ch09 | — | ✅ | [ch01_users_and_groups.md](knowledge/linux_system/ch01_users_and_groups.md) · [ch03_process_advanced.md](knowledge/linux_system/ch03_process_advanced.md) |
+| 3.9 | Daemons — daemon creation, `syslog()` | Ch37 | — | ✅ | [ch03_process_advanced.md](knowledge/linux_system/ch03_process_advanced.md) |
+| 3.10 | Process Priorities & Scheduling — `SCHED_FIFO`, `SCHED_RR`, `nice` | Ch35 | — | ✅ | [ch03_process_advanced.md](knowledge/linux_system/ch03_process_advanced.md) |
+| 3.11 | Process Resources & Limits — `rlimit`, `getrusage()` | Ch36 | — | ✅ | [ch03_process_advanced.md](knowledge/linux_system/ch03_process_advanced.md) |
 
 ---
 
