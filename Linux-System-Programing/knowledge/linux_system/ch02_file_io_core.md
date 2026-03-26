@@ -82,6 +82,47 @@ When a device needs features outside the universal model (e.g., setting terminal
 
 ---
 
+## System Context
+
+### Where File I/O sits in the Linux system
+
+```
+User Programs
+     ↕  open() / read() / write() / close()  — system calls
+VFS Layer (kernel) — the universal interface
+     ├── ext4 / xfs / btrfs driver  →  Block I/O  →  Storage hardware
+     ├── tmpfs / ramfs              →  Page cache (RAM only)
+     ├── socket layer               →  Network stack
+     ├── pipe buffer                →  Shared kernel memory ring
+     └── /proc / /sys handlers      →  Kernel data structures
+```
+
+### Subsystem interactions
+
+- **VFS**: Translates `open/read/write/close` into filesystem-specific operations. Every I/O call goes through the VFS before reaching the actual storage driver.
+- **Page Cache**: All regular file `read()`/`write()` pass through the kernel page cache. A `write()` that succeeds means data is in kernel memory — **not necessarily on disk**.
+- **Process Management**: The FD Table is per-process. `fork()` duplicates it; `exec()` closes FDs flagged `O_CLOEXEC`. FDs are the primary bridge between a running process and its open resources.
+- **Memory Management**: Page cache pages belong to the kernel's virtual memory system. `mmap()` shares the same pages — reading a `mmap()`'d file and `read()`-ing it access the same physical memory.
+
+### Failure scenarios
+
+| Failure | errno | Symptom | Root cause |
+|---------|-------|---------|------------|
+| `open()` → -1 | `ENOENT` | "No such file" | Path does not exist |
+| `open()` → -1 | `EMFILE` | "Too many open files" | Per-process FD limit (`ulimit -n`) exhausted |
+| `open()` → -1 | `ENFILE` | System-wide FD table full | Kernel's global open-file limit exceeded |
+| `open()` → -1 | `EACCES` | "Permission denied" | Process lacks required permission |
+| `read()` → 0 | — | Premature EOF | Pipe writer closed; file ended |
+| `write()` → -1 | `ENOSPC` | "No space left on device" | Disk full |
+| `write()` → -1 | `EPIPE` + SIGPIPE | Process killed | Pipe/socket reader closed |
+| `write()` → -1 | `EFAULT` | "Bad address" | Buffer pointer is NULL or unmapped |
+| `fsync()` → -1 | `EIO` | "Input/output error" | Disk hardware failure |
+| `close()` → -1 | `EIO` | Deferred write error | Common on NFS — data silently lost if ignored |
+
+> **Critical:** On NFS and network filesystems, deferred write errors surface at `close()` time, not `write()` time. **Always check the return value of `close()`** for any file write where durability matters.
+
+---
+
 ## 3. File Descriptor
 
 A **file descriptor (FD)** is a small non-negative integer that represents an open connection to a resource. It is the handle returned by `open()` and used by all subsequent I/O calls.
@@ -879,7 +920,21 @@ If one process opens a file with `O_DIRECT` and another opens it normally, the k
 
 ---
 
-## 17. Common Bugs and How to Avoid Them
+## 17. Debugging
+
+### Debugging Tools
+
+| Goal | Tool | Example |
+|------|------|---------|
+| Trace every FD operation | `strace` | `strace -e trace=openat,read,write,close ./program` |
+| List all open FDs of a process | `lsof` | `lsof -p <PID>` |
+| Inspect FD targets via /proc | `/proc/<PID>/fd/` | `ls -la /proc/$(pidof nginx)/fd/` |
+| Check per-process FD limit | `ulimit` | `ulimit -n` |
+| Check system-wide open file count | `/proc/sys/fs/file-nr` | `cat /proc/sys/fs/file-nr` |
+| Find deleted file still held open | `lsof` | `lsof \| grep deleted` |
+| Find what holds a mount point busy | `fuser` | `fuser -v /mnt/usb` |
+
+### Common Bugs and How to Avoid Them
 
 ### Bug 1: Ignoring partial read/write
 

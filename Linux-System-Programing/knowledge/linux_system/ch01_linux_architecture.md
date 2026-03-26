@@ -171,6 +171,62 @@ The same `read()`, `write()`, `close()` API works for:
 - Pipes between processes
 - Device files `/dev/ttyS0` (serial port on embedded)
 
+### Subsystem Interactions
+
+| User Space Component | Communicates With |
+|----------------------|------------------|
+| Shell, apps, utilities | System libraries (glibc) — via function calls |
+| glibc | Kernel — via `syscall` CPU instruction |
+| Kernel Scheduler | All subsystems — controls CPU time allocation |
+| Kernel VFS | Filesystem drivers, device drivers |
+| Device Drivers | Physical hardware (disk, NIC, GPIO, UART) |
+
+### Failure Scenarios
+
+| What Fails | What Happens |
+|------------|-------------|
+| Kernel bug / panic | System halts — no recovery possible from user space |
+| Process accesses kernel-space address | CPU hardware trap → kernel sends **SIGSEGV** to the process |
+| System call returns -1 | `errno` is set; caller must check and handle — no automatic rollback |
+| glibc not found at program start | Dynamic linker returns `ENOENT` — program cannot execute |
+| Stack grows past `ulimit -s` limit | Hardware stack guard page hit → kernel sends **SIGSEGV** |
+
+---
+
+## Architecture
+
+```
+USER SPACE
+  ┌─────────┐  ┌──────────────┐  ┌─────────────────┐
+  │  Shell  │  │System Utility│  │  Your Program   │   ← all equal peers
+  └────┬────┘  └──────┬───────┘  └────────┬────────┘
+       └───────────────┼──────────────────┘
+                       │ library function calls
+                       ▼
+              ┌─────────────────┐
+              │  glibc / libc   │   ← C standard library + syscall wrappers
+              └────────┬────────┘
+                       │ syscall instruction (CPU ring 3 → ring 0)
+─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+           SYSTEM CALL INTERFACE  (~300 syscalls)
+─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+                       │ (now in kernel mode)
+                       ▼
+KERNEL SPACE
+  ┌───────────┐ ┌──────────┐ ┌─────┐ ┌────────────┐
+  │ Scheduler │ │Memory Mgr│ │ VFS │ │ Networking │
+  └───────────┘ └──────────┘ └──┬──┘ └────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │      Device Drivers      │
+                    └────────────┬────────────┘
+                                 │
+                    HARDWARE (CPU, RAM, Disk, NIC)
+```
+
+The dashed boundary cannot be crossed without a `syscall` instruction —
+enforced by CPU hardware rings (ring 3 = user, ring 0 = kernel).
+
 ---
 
 ## Internal Mechanism — System Calls
@@ -281,7 +337,53 @@ Each process talks **directly** to the kernel via its own system calls.
 
 ---
 
-## Error Handling
+## Example
+
+### Reading a File Using System Calls
+
+```c
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+
+int main(void) {
+    /* syscall: open() — user→kernel transition */
+    int fd = open("hello.txt", O_RDONLY);
+    if (fd == -1) {
+        fprintf(stderr, "open: %s\n", strerror(errno));
+        return 1;
+    }
+
+    char buf[128];
+    /* syscall: read() */
+    ssize_t n = read(fd, buf, sizeof(buf) - 1);
+    if (n > 0) {
+        buf[n] = '\0';
+        write(STDOUT_FILENO, buf, n);  /* syscall: write() */
+    }
+
+    close(fd);   /* syscall: close() */
+    return 0;
+}
+```
+
+**Verify with strace — see every syscall the process makes:**
+```bash
+$ strace ./a.out
+openat(AT_FDCWD, "hello.txt", O_RDONLY) = 3   ← fd=3 returned
+read(3, "hello world\n", 127)           = 12  ← 12 bytes read
+write(1, "hello world\n", 12)           = 12  ← written to stdout
+close(3)                                = 0
+exit_group(0)                           = ?
+```
+
+Each line = one kernel entry = one user→kernel privilege transition.
+
+---
+
+## Debugging
 
 ### System Call Errors
 

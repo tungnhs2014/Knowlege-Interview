@@ -62,6 +62,27 @@ The answers may differ between systems, filesystem types, and kernel configurati
 
 ---
 
+## System Context
+
+| Question | Answer |
+|----------|--------|
+| **What problem?** | Exposes live kernel state (process info, memory stats, tunable params) through standard file I/O — no special tools or kernel modules required |
+| **Where in the system?** | `/proc` sits between kernel internal data structures and user space; mounted as a virtual filesystem by the kernel during boot |
+| **Subsystem interactions** | VFS (procfs driver handles file operations), Scheduler (provides `/proc/PID/` directories), Memory Manager (provides `/proc/meminfo`), all subsystems accessible via `/proc/sys/` |
+| **If it fails?** | See Failure Scenarios below |
+
+### Failure Scenarios
+
+| What Fails | What Happens |
+|------------|-------------|
+| `/proc` not mounted | `ps`, `top`, `free`, `ss` all fail — they read from /proc |
+| Read `/proc/PID/` after process exits | Returns **ENOENT** — directory disappears when process terminates |
+| Write invalid value to `/proc/sys/` | Kernel rejects with **EINVAL** — current setting unchanged |
+| Write to `/proc/sys/` without root | Returns **EACCES** — tunable params are root-writable only |
+| `/proc` inaccessible in container | Restricted by mount namespace — may not see host process info |
+
+---
+
 ## Architecture — /proc Structure
 
 ```
@@ -291,6 +312,61 @@ $ getconf PIPE_BUF /tmp
 
 ---
 
+## Example
+
+### Reading /proc Files in C
+
+```c
+#include <stdio.h>
+#include <string.h>
+
+int main(void) {
+    FILE *fp = fopen("/proc/self/status", "r");
+    if (!fp) { perror("fopen"); return 1; }
+
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "Pid:",   4) == 0 ||
+            strncmp(line, "Uid:",   4) == 0 ||
+            strncmp(line, "VmRSS:", 6) == 0) {
+            printf("%s", line);
+        }
+    }
+    fclose(fp);
+    return 0;
+}
+```
+
+Sample output:
+```
+Pid:    12345
+Uid:    1000  1000  1000  1000
+VmRSS:  2048 kB
+```
+
+### Querying System Limits in C
+
+```c
+#include <unistd.h>
+#include <stdio.h>
+
+int main(void) {
+    printf("Page size:    %ld bytes\n", sysconf(_SC_PAGESIZE));
+    printf("Max open FDs: %ld\n",       sysconf(_SC_OPEN_MAX));
+    printf("Max filename: %ld chars\n", pathconf("/", _PC_NAME_MAX));
+    return 0;
+}
+```
+
+Sample output:
+```
+Page size:    4096 bytes
+Max open FDs: 1024
+Max filename: 255 chars
+```
+
+---
+
 ## Debugging
 
 ```bash
@@ -371,7 +447,7 @@ broken data transfers.
 
 ---
 
-## How /proc Works Internally
+## Execution Flow
 
 When you `open("/proc/meminfo")`, here is what happens:
 

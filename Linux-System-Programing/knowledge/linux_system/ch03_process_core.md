@@ -387,6 +387,144 @@ exit(EXIT_SUCCESS);        // only parent flushes
 
 ---
 
+## System Context — Processes in the Linux Architecture
+
+**Where processes fit:**
+Processes are the fundamental unit of resource allocation and isolation in the Linux kernel. Every running program is a process — a `task_struct` in the kernel with its own virtual address space, FD table, credentials, and scheduling state.
+
+```
+User Space                         Kernel Space
+──────────────────                 ──────────────────────────────────────
+text / data / BSS      ◄──────►   task_struct:
+heap (malloc/brk)                    PID, PPID, credentials
+stack (local vars)                   page table         → Memory Manager
+                                     FD table           → VFS
+                                     signal table       → Signal subsystem
+                                     scheduling info    → Scheduler
+                                     resource limits    → Resource Manager
+
+fork() ──────────────────────────► do_fork():
+                                     CoW page table clone
+                                     new task_struct
+
+exit() ──────────────────────────► kernel cleanup:
+                                     close all FDs      (VFS)
+                                     unmap memory       (MM)
+                                     notify parent      (SIGCHLD)
+                                     state → ZOMBIE until wait()
+```
+
+**Subsystem interactions:**
+- **Memory Manager:** Each process has its own page table. `fork()` creates a CoW clone — child's page table entries point to parent's physical frames, marked read-only. The first write to a shared page triggers a fault and copies that one frame. `exec()` unmaps the old address space and loads a new ELF.
+- **Scheduler:** `task_struct` is the scheduler's primary entity. `fork()` adds a new schedulable entity to the run queue. `exit()` marks the task as `TASK_ZOMBIE` — it remains in the process table until the parent calls `wait()`.
+- **VFS (Filesystem):** `fork()` duplicates the FD table; child inherits the same open file descriptions (shared offsets). `exec()` loads a new binary via VFS. `exit()` closes all FDs, releasing any file locks.
+- **Signal subsystem:** `fork()` clears pending signals in the child. `exit()` sends `SIGCHLD` to the parent. `exec()` resets handler dispositions to `SIG_DFL` (handler code is replaced by the new program text).
+- **Process hierarchy:** If parent exits before child, the child is reparented to init (PID 1) — `getppid()` returns 1. `exit()` of the controlling process of a terminal sends `SIGHUP` to the foreground process group.
+
+**Failure scenarios:**
+- `fork()` fails with `EAGAIN` when `RLIMIT_NPROC` is reached — the process table for this real UID is full. Retry loops without backoff make this worse; handle the error and back off.
+- Zombie accumulation: parent never calls `wait()` → each dead child retains a process table entry. When the table is full, `fork()` fails system-wide. Fix: install a `SIGCHLD` handler that loops `waitpid(-1, NULL, WNOHANG)`.
+- CoW storm: parent forks with a large heap and both sides immediately write to every page → all pages copied → OOM killer triggered. Use `madvise(MADV_DONTFORK)` on large buffers the child does not need.
+- `vfork()` misuse: child modifies any local variable or returns from the calling function → directly corrupts parent's memory (they share the same address space) → undefined behavior.
+- stdio double-flush: both parent and child call `exit()` after `fork()` with block-buffered stdout → the stdio buffer (copied by CoW) is flushed twice → duplicate output. Fix: `fflush()` before `fork()`, or have child call `_exit()`.
+- `putenv()` with a local variable: if the `string` argument goes out of scope, the environment entry becomes a dangling pointer → subsequent `getenv()` returns garbage or crashes.
+- Stack overflow: `SIGSEGV` handler cannot run because there is no stack space left, unless `sigaltstack()` + `SA_ONSTACK` was set up beforehand.
+
+---
+
+## Debugging
+
+**Inspect process state via `/proc`:**
+
+```bash
+# Process tree with PIDs
+pstree -p
+
+# Find zombie processes
+ps aux | grep 'Z'
+ps -eo pid,ppid,stat,cmd | awk '$3 ~ /Z/'
+
+# Inspect virtual memory layout (all VMAs with permissions and mapped files)
+cat /proc/<PID>/maps
+cat /proc/<PID>/smaps        # per-VMA stats: RSS, PSS, dirty pages
+
+# Check memory footprint
+cat /proc/<PID>/status | grep -E "VmRSS|VmPeak|VmSize|VmStk|VmData"
+
+# View all open file descriptors
+ls -la /proc/<PID>/fd        # symlinks to actual files/sockets/pipes
+lsof -p <PID>
+
+# Check resource limits
+cat /proc/<PID>/limits
+
+# Inspect command-line arguments and environment
+strings /proc/<PID>/cmdline  # NUL-separated argv
+strings /proc/<PID>/environ  # NUL-separated environment variables
+
+# Trace fork/exec/exit syscalls (follow children with -f)
+strace -f -e trace=fork,clone,execve,wait4,_exit ./program
+```
+
+**GDB for fork/exec debugging:**
+
+```
+(gdb) set follow-fork-mode child    # follow child on fork() (default: parent)
+(gdb) set detach-on-fork off        # keep both parent and child in debugger
+(gdb) info inferiors                # list all processes being debugged
+(gdb) inferior 2                    # switch to process #2
+(gdb) catch exec                    # breakpoint when execve() succeeds
+```
+
+**Common bugs to catch in review:**
+
+```c
+/* BUG: not checking fork() return value for error */
+pid_t pid = fork();
+if (pid == 0) { /* child */ }
+else { /* parent — but pid could be -1! */ }
+
+/* FIX */
+pid_t pid = fork();
+if (pid == -1) errExit("fork");
+else if (pid == 0) { /* child */ }
+else { /* parent */ }
+
+/* BUG: both parent and child call exit() — stdio double flush */
+fork();
+exit(0);
+
+/* FIX: child uses _exit() — no stdio flush, no exit handlers */
+if (fork() == 0) _exit(0);
+exit(0);   /* only parent flushes stdio */
+
+/* BUG: putenv() with stack variable → dangling pointer */
+void setup_env(void) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "FOO=bar");
+    putenv(buf);   /* stores pointer to stack — invalid after return */
+}
+/* FIX: use setenv() which copies the string */
+setenv("FOO", "bar", 1);
+```
+
+---
+
+## Real-world Usage
+
+| Use case | API | Pattern |
+|---|---|---|
+| Shell command execution | `fork()` + `execve()` | Shell forks; child sets up I/O redirects with `dup2()`, then execs the command |
+| Test process isolation | `fork()` | Each test runs in a child; parent collects exit status; crash in child cannot kill the test runner |
+| Web server worker pool | `fork()` + shared listen socket | Pre-fork N workers; each child calls `accept()` independently on the shared fd |
+| Privilege drop before exec | `fork()` + `seteuid()` + `execv()` | Fork; drop to non-root in child; exec command with reduced privilege |
+| Check process liveness | `kill(pid, 0)` | Returns 0 = alive; `ESRCH` = gone; `EPERM` = alive, no permission to signal |
+| Avoid CoW overhead for large buffers | `madvise(MADV_DONTFORK)` | Mark large mmap'd regions to not be inherited by child (e.g., large read-only ML model) |
+| Prevent core dumps exposing credentials | `setrlimit(RLIMIT_CORE, 0)` | Set once in server startup; inherited by all forked children |
+| Daemon initialization | `fork()` + `setsid()` + `fork()` | Double-fork to fully detach from terminal and become un-sessionable (see Topic 3.9) |
+
+---
+
 ## Summary
 
 | Topic | Core Mechanism |

@@ -700,6 +700,143 @@ CPU time reaches hard limit → SIGKILL (cannot be caught)
 
 ---
 
+## System Context — Advanced Process Management in the Linux Architecture
+
+**Where these topics fit:**
+Process groups, sessions, credentials, scheduling policies, and resource limits are all kernel-managed fields inside each `task_struct`. They determine how processes are organized in terminal hierarchies, who they are allowed to be, how the CPU allocates time, and what system resources they may consume.
+
+```
+System-wide hierarchy
+──────────────────────────────────────────────────────────────────
+Sessions (SID)
+  └── Process Groups (PGID)          ← tcsetpgrp(), setsid()
+        └── Processes (PID/TID)
+
+Kernel structures inside task_struct
+┌─────────────────────────────────────────────────────────────┐
+│ task_struct                                                 │
+│   cred → uid/gid/euid/egid/suid/sgid  ← Credentials (3.8)  │
+│   pgid / sid / tty                    ← Sessions (3.7)      │
+│   sched_policy + sched_priority       ← Scheduler (3.10)    │
+│   rlimit[RLIM_NLIMITS]               ← Resource Mgr (3.11) │
+│   files → FD table                   ← VFS                  │
+│   mm → page tables                   ← Memory Manager       │
+└─────────────────────────────────────────────────────────────┘
+          │
+   ┌──────┴──────────────┐
+   ▼                     ▼
+Permission checks    Scheduler runqueue
+(euid/egid/caps)     (nice value / RT priority)
+```
+
+**Subsystem interactions:**
+- **Scheduler (3.10):** Nice values and realtime policies are stored in `task_struct`. `SCHED_FIFO` processes sit at the top of the scheduler runqueue and preempt all `SCHED_OTHER` processes without a time slice. CPU affinity is enforced by per-CPU runqueues — `sched_setaffinity()` restricts which runqueues a task may enter.
+- **Security/Permission system (3.8):** Every syscall touching files, signals, or IPC checks `euid`/`egid`/supplementary GIDs. `seteuid()` changes the number in `task_struct`'s `cred` — no physical data movement, just a field update that all subsequent permission checks see.
+- **Terminal driver (3.7):** The tty driver maintains the session's `foreground_pgid`. Signals `SIGINT`, `SIGQUIT`, `SIGTSTP` are sent to the **entire foreground process group**. Background processes reading the terminal trigger `SIGTTIN`. `SIGHUP` is sent to the controlling process (session leader) on terminal disconnect.
+- **Signal subsystem (3.7, 3.9):** `setsid()` severs the new session from any controlling terminal, making `SIGHUP` from disconnect impossible — repurposed by convention as the daemon reload signal. When a process group becomes orphaned with stopped members, the kernel delivers `SIGHUP` + `SIGCONT` to all members.
+- **Resource accounting (3.11):** `struct rlimit` entries in `task_struct` are checked at every relevant syscall boundary: `open()` checks `RLIMIT_NOFILE`, `fork()` checks `RLIMIT_NPROC`, `write()` checks `RLIMIT_FSIZE`. Soft limit violations generate signals; hard limit violations generate signals or `errno` errors depending on the resource.
+
+**Failure scenarios:**
+- `setsid()` returns `EPERM` if the calling process is a process group leader. Daemon creation must `fork()` first to guarantee the child is not a group leader before calling `setsid()`.
+- `setuid(non_zero)` called by a root process permanently drops **all three** UIDs (real, effective, saved) — irreversible. Use `seteuid()` for temporary privilege drop; the saved UID retains the original root value for regain.
+- Daemon skips the second `fork()` after `setsid()`: the session leader can reacquire a controlling terminal if it opens a tty device. Double-fork ensures the daemon is never a session leader, preventing this.
+- No `SIGTERM` handler in daemon: systemd sends `SIGTERM` during shutdown. Without a handler, the process dies immediately with no cleanup. After a timeout (typically 5s), `SIGKILL` is sent regardless.
+- `SCHED_FIFO` runaway: a realtime process that never blocks (no I/O, no sleep) consumes 100% of one CPU indefinitely, starving all `SCHED_OTHER` processes. Mitigate with `RLIMIT_RTTIME` (Linux 2.6.25+) or `SCHED_RR` with a time slice.
+- `RLIMIT_NOFILE` too low: `open()`, `socket()`, `accept()` fail with `EMFILE` at connection peak. High-connection servers must raise this limit before entering the accept loop.
+- `RLIMIT_NPROC` exceeded with a retry loop: `fork()` returns `EAGAIN`; application immediately retries → busy-waits consuming CPU without progress. Always back off on `EAGAIN`.
+- `getpriority()` returning -1: this is a **valid nice value** (-1 is a valid priority). Must set `errno = 0` before the call and check `errno != 0` after to distinguish a real error from the valid return value.
+
+---
+
+## Debugging
+
+**Inspect session, credentials, scheduling, and resource limits:**
+
+```bash
+# Show process groups, sessions, controlling terminal, and state
+ps -o pid,ppid,pgid,sid,tty,stat,cmd
+
+# Check UIDs and GIDs (real, effective, saved, filesystem)
+cat /proc/<PID>/status | grep -E "^(Uid|Gid|Groups):"
+# Uid: real  effective  saved  filesystem
+
+# View scheduling policy and priority
+chrt -p <PID>
+
+# View CPU affinity
+taskset -p <PID>
+
+# Check all resource limits for a process
+cat /proc/<PID>/limits
+ulimit -a               # for the current shell session
+
+# Measure CPU time, memory, page faults, context switches
+/usr/bin/time -v ./program
+
+# Verify daemon is fully detached from any controlling terminal
+ps -C <daemon_name> -o "pid ppid pgid sid tty command"
+# TT column should be '?' — confirms no controlling terminal
+
+# Check daemon logs
+journalctl -u <service_name> -f    # systemd-managed daemon
+tail -f /var/log/syslog            # traditional syslog daemon
+```
+
+**Common bugs to catch in review:**
+
+```c
+/* BUG: setsid() without prior fork() */
+setsid();   /* EPERM — calling process is a process group leader */
+
+/* FIX: fork first; parent exits; child is never a group leader */
+if (fork() != 0) _exit(EXIT_SUCCESS);
+setsid();   /* succeeds — child is not a group leader */
+
+/* BUG: setuid() by root permanently drops ALL three UIDs */
+setuid(1000);    /* real=1000, effective=1000, saved=1000 */
+setuid(0);       /* ERROR: EPERM — root access permanently gone */
+
+/* FIX: use seteuid() to temporarily drop privilege */
+seteuid(1000);   /* only changes effective UID; saved still = 0 */
+/* ... unprivileged work ... */
+seteuid(0);      /* regain root — saved UID was preserved */
+
+/* BUG: getpriority() -1 not distinguished from error */
+int prio = getpriority(PRIO_PROCESS, 0);
+if (prio == -1) perror("getpriority");  /* wrong: -1 is valid (nice = -1) */
+
+/* FIX: set errno=0 first */
+errno = 0;
+int prio = getpriority(PRIO_PROCESS, 0);
+if (prio == -1 && errno != 0) perror("getpriority");
+
+/* BUG: RLIMIT_NOFILE not raised before accept loop */
+while (1) {
+    int conn = accept(listenfd, NULL, NULL);
+    /* EMFILE when system hits default limit of 1024 */
+}
+/* FIX: raise limit at startup */
+struct rlimit rl = { .rlim_cur = 65536, .rlim_max = 65536 };
+setrlimit(RLIMIT_NOFILE, &rl);
+```
+
+---
+
+## Real-world Usage
+
+| Use case | Topic | API | Pattern |
+|---|---|---|---|
+| SSH session management | 3.7 | `setsid()`, `tcsetpgrp()` | Each SSH connection creates a new session; terminal signals stay scoped to that session |
+| `passwd` writes to root-only `/etc/shadow` | 3.8 | set-UID bit + `seteuid()` | Binary owned by root with set-UID bit; temporarily holds root effective UID while accessing shadow file |
+| nginx privilege drop | 3.8 | `setuid()` after binding port 80 | Master process binds port 80 as root, then permanently drops to `nginx` user before handling requests |
+| `logrotate` daemon config reload | 3.9 | `SIGHUP` + `kill -HUP $(pidof nginx)` | Daemon reopens log files without restart; `SIGHUP` is safe because daemons have no controlling terminal |
+| Audio/video real-time processing | 3.10 | `sched_setscheduler(SCHED_FIFO, priority=50)` | PulseAudio, JACK use `SCHED_FIFO` to guarantee low-latency audio buffer fill with no preemption |
+| High-connection server FD limit | 3.11 | `setrlimit(RLIMIT_NOFILE, 65536)` | nginx, Node.js raise the FD limit at startup before entering the accept loop |
+| Prevent credential dump in core files | 3.11 | `setrlimit(RLIMIT_CORE, 0)` | Production servers disable core dumps to prevent memory (and credentials) from being written to disk |
+| Fork bomb prevention | 3.11 | `setrlimit(RLIMIT_NPROC, N)` | Login shells inherit `RLIMIT_NPROC`; all child processes count toward the same per-user limit |
+
+---
+
 ## Summary Table — Chapter 3 Advanced Topics
 
 | Topic | Core Concept | Key APIs |

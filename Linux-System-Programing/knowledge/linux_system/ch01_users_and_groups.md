@@ -43,6 +43,26 @@ no memory of the name.
 
 ## System Context
 
+### Where It Sits and How It Interacts
+
+| Question | Answer |
+|----------|--------|
+| **What problem?** | Without a permission model, any process could read/write any file or kill any process |
+| **Where in the system?** | UID/GID permission checks happen inside the kernel at every resource access point (open, read, write, kill, etc.) |
+| **Subsystem interactions** | VFS (file permission checks), Process subsystem (credential inheritance on fork/exec), PAM (login authentication), `/proc/PID/status` (credential inspection) |
+| **If it fails?** | See Failure Scenarios below |
+
+### Failure Scenarios
+
+| What Fails | What Happens |
+|------------|-------------|
+| `/etc/passwd` corrupted or missing | Login fails system-wide; `getpwnam()` returns `NULL` |
+| `/etc/shadow` unreadable (wrong permissions) | PAM authentication breaks — users cannot log in |
+| UID reuse after user deletion | New user with same UID silently inherits old user's files |
+| Permission check fails | Syscall returns **EACCES** (errno=13) — operation refused |
+| set-UID binary exploited | Attacker inherits elevated Effective UID → privilege escalation |
+| `/etc/group` corrupted | Supplementary group lookup fails → unexpected permission denials |
+
 ### Three Configuration Files
 
 #### `/etc/passwd` — User definitions
@@ -207,7 +227,39 @@ Kernel uses Effective UID for ALL permission checks
 
 ---
 
-## API — Retrieving User/Group Information in C
+## Execution Flow — End-to-End Permission Check
+
+```
+1. Login:
+   PAM reads /etc/shadow → verifies SHA-512 hash
+   Shell starts with Real UID/GID from /etc/passwd
+
+2. User runs a program:
+   fork()  → child inherits Real/Effective/Saved UID from parent
+   exec()  → if binary has set-UID bit:
+               Effective UID = binary owner's UID
+               Saved UID     = new Effective UID
+
+3. Kernel permission check (on open/read/write/stat...):
+   Get process Effective UID
+   Get file inode: owner_uid, owner_gid, permission bits (rwxrwxrwx)
+   Resolve which permission class applies:
+     eUID == owner_uid            → use owner bits (e.g., rw-)
+     eGID in supplementary groups → use group bits (e.g., r--)
+     otherwise                    → use other bits (e.g., r--)
+   Check relevant bit:
+     set? → allow
+     not set? → return EACCES
+
+4. Privilege management:
+   setuid(getuid())   → drop Effective to Real (low privilege)
+   ... do unsafe work ...
+   setuid(saved_uid)  → restore Effective from Saved (if permitted)
+```
+
+---
+
+## Example — Retrieving User/Group Information in C
 
 ```c
 #include <pwd.h>

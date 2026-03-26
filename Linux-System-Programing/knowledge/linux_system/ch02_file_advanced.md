@@ -40,6 +40,72 @@
 
 ---
 
+## System Context
+
+### Where these topics sit in the Linux system
+
+**2.7 — File Locking**: A concurrency control layer on top of the file I/O system. Sits between cooperating user processes and the shared file. Entirely advisory by default — kernel does not enforce unless all participants cooperate.
+
+**2.8 — inotify**: An event notification mechanism inside the VFS. When the kernel modifies an inode (write, unlink, rename, chmod, etc.), it generates inotify events to registered watchers.
+
+**2.9 — xattr / ACL**: Extension layers on the inode. xattr adds arbitrary name-value metadata; ACL adds fine-grained per-user/group permissions enforced by the kernel's permission-checking subsystem.
+
+```
+            User Processes (A, B, C)
+                  ↕                ↕
+         File Locking          inotify fd
+         (flock / fcntl)       (event delivery)
+                  ↕                ↕
+              VFS Layer ←────────┘
+         ┌───────┴─────────────────┐
+    Inode Table           Lock Table
+    + xattr / ACL         (per inode, in-memory linked list)
+    (on-disk, cached)
+```
+
+### Subsystem interactions
+
+- **File I/O (ch02_file_io_core)**: Locking wraps the same `open()`/`read()`/`write()` operations. `flock()` lock semantics depend on the Open File Description (3-table model, topic 2.1). `fcntl()` lock semantics depend on the `(PID, inode)` pair.
+- **Process Management (ch03)**: `fork()` and `exec()` have different effects on `flock()` vs `fcntl()` locks — critical to understand when daemonizing.
+- **Signals (ch04)**: `F_SETLKW` can be interrupted by a signal (`EINTR`). inotify fd can be integrated with `signalfd` + `epoll` in a unified event loop.
+- **epoll / I/O models (ch09)**: inotify fd is a normal fd — integrates with `epoll` for non-blocking event-driven monitoring alongside network sockets and timers.
+- **Permissions (ch02_file_system)**: xattr `user` namespace is gated by the same read/write bits as the file itself. ACL extends the permission model checked by the kernel on every file access.
+
+### Failure scenarios
+
+**Topic 2.7 — File Locking:**
+
+| Failure | errno / signal | Symptom | Root cause |
+|---------|---------------|---------|------------|
+| `F_SETLKW` never returns | — (blocks) | Process hangs | Lock held by crashed/zombie process; or write lock starved by readers |
+| `F_SETLKW` fails | `EDEADLK` | "Resource deadlock avoided" | Kernel detected circular wait — release all locks and retry |
+| `F_SETLKW` interrupted | `EINTR` | `fcntl()` returns -1 | Signal received while waiting; must re-try |
+| `flock()` lock unexpectedly released | — | Concurrent access despite lock | Child from `fork()` released the shared OFD lock |
+| `fcntl()` lock unexpectedly released | — | Lock gone | Closing **any** FD to the same inode releases all per-process `fcntl()` locks |
+| Advisory lock ignored | — | Race condition | A process used direct `write()` without acquiring lock first |
+
+**Topic 2.8 — inotify:**
+
+| Failure | errno | Symptom | Root cause |
+|---------|-------|---------|------------|
+| `inotify_init()` fails | `EMFILE` | "Too many open files" | Per-user `max_user_instances` limit reached |
+| `inotify_add_watch()` fails | `ENOSPC` | "No space left" | Per-user `max_user_watches` limit reached |
+| `IN_Q_OVERFLOW` event received | — | Events silently dropped | Event queue full; `max_queued_events` exceeded; must rescan |
+| No events on a networked path | — | Watch appears to work but silent | inotify does not work reliably on NFS / CIFS / FUSE |
+| Files in new subdirectory missed | — | Events gap | Recursive watch race: files created between `mkdir` and `inotify_add_watch()` |
+
+**Topic 2.9 — xattr / ACL:**
+
+| Failure | errno | Symptom | Root cause |
+|---------|-------|---------|------------|
+| `setxattr()` fails | `ENOTSUP` | "Operation not supported" | Filesystem mounted without `user_xattr` option |
+| `setxattr()` fails | `ENOSPC` | "No space left" | Total xattr data for this inode exceeds one disk block (~4 KB on ext4) |
+| ACL set but not enforced | — | 9-bit model used instead | Filesystem not mounted with `-o acl` option |
+| `chmod g=rx` unexpectedly restricts group | — | `ACL_GROUP_OBJ` entries effective but masked | `chmod` modifies `ACL_MASK` on extended ACL files |
+| `cp` does not preserve ACL | — | Copied file has minimal ACL only | Use `cp -a` or `cp --preserve=all` |
+
+---
+
 # Topic 2.7 — File Locking
 
 ---
@@ -844,6 +910,121 @@ Default ACLs **propagate**: new subdirectories inherit the parent's default ACL 
 | Dependency | Independent | **Built on top of xattr** |
 
 **Key insight:** ACL is a specialization of xattr. The `system` namespace xattr `system.posix_acl_access` is written and read by the kernel's ACL subsystem automatically whenever you use `setfacl`/`getfacl` or call `acl_set_file()` library functions.
+
+---
+
+## Debugging
+
+### File Locking
+
+```bash
+# View all file locks currently held system-wide
+cat /proc/locks
+# Format: id  type  pid  device:inode  start  end
+# FLOCK = flock(),  POSIX = fcntl() record lock
+
+# Trace lock-related syscalls for a program
+strace -e trace=fcntl,flock ./program
+
+# Find all FDs open by a process
+lsof -p <PID>
+```
+
+| Symptom | Diagnostic step | Tool |
+|---------|----------------|------|
+| Process blocks indefinitely on lock | Find who holds conflicting lock | `cat /proc/locks \| grep <inode#>` |
+| Lock not preventing concurrent access | Check all writers acquire lock first | `strace -e trace=fcntl,flock` |
+| `close()` unexpectedly released lock | Check for other FDs open to same file | `lsof -p <PID>` |
+| Deadlock not automatically detected | Using `flock()` not `fcntl()` | `flock()` has no deadlock detection |
+
+### inotify
+
+```bash
+# Check current inotify limits
+cat /proc/sys/fs/inotify/max_queued_events   # default 16384
+cat /proc/sys/fs/inotify/max_user_watches    # default 8192
+cat /proc/sys/fs/inotify/max_user_instances  # default 128
+
+# Increase watch limit (temporary)
+echo 65536 > /proc/sys/fs/inotify/max_user_watches
+
+# Look at active watches for a process
+cat /proc/<PID>/fdinfo/<inotify_fd>
+
+# Quick test: monitor a directory from the shell
+inotifywait -m -r /path/to/watch
+```
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| No events on network mount | NFS/CIFS not supported | Use polling fallback for remote paths |
+| Events stop after file deleted | Watch auto-removed (`IN_IGNORED`) | Re-add watch on `IN_DELETE_SELF` or `IN_IGNORED` |
+| Files in new subdirs missed | Recursive race condition | Rescan new dir immediately after `IN_CREATE\|IN_ISDIR` |
+| Too many `IN_MODIFY` events | Rapid writes coalesced | Use `IN_CLOSE_WRITE` instead of `IN_MODIFY` to detect completion |
+
+### xattr / ACL
+
+```bash
+# Check all extended attributes (including system/security namespaces)
+getfattr -m - -d /path/to/file
+
+# Check ACL (including effective permissions after mask)
+getfacl /path/to/file
+
+# Verify filesystem supports xattr and acl
+mount | grep /path   # look for 'acl' and 'user_xattr' in options
+tune2fs -l /dev/sda1 | grep 'Default mount options'
+```
+
+---
+
+## Real-world Usage
+
+### Single-Instance Daemon (file locking)
+
+```c
+// Ensure only one instance runs; lock auto-released on exit/crash
+int fd = open("/var/run/myapp.pid", O_RDWR | O_CREAT, 0644);
+if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
+    if (errno == EWOULDBLOCK) { fprintf(stderr, "Already running\n"); exit(1); }
+}
+char buf[32];
+snprintf(buf, sizeof(buf), "%d\n", getpid());
+ftruncate(fd, 0); write(fd, buf, strlen(buf));
+// keep fd open for daemon lifetime
+```
+
+### Hot-reload Config Watcher (inotify)
+
+```c
+// Reload config file whenever it changes
+int ifd = inotify_init1(IN_CLOEXEC);
+inotify_add_watch(ifd, "/etc/myapp/config.conf", IN_CLOSE_WRITE | IN_MOVED_TO);
+
+char buf[4096];
+read(ifd, buf, sizeof(buf));   // blocks until change
+reload_config();               // safe: file is fully written (CLOSE_WRITE)
+```
+
+### Tag Files with Application Metadata (xattr)
+
+```c
+// Store content type without changing filename
+const char *mime = "application/json";
+setxattr("data.bin", "user.mime_type", mime, strlen(mime), 0);
+
+// Read it back
+char type[256];
+getxattr("data.bin", "user.mime_type", type, sizeof(type));
+```
+
+### Grant CI Bot Access Without Changing Group (ACL)
+
+```bash
+# Give ci-bot write access to /srv/web without changing file ownership
+setfacl -m u:ci-bot:rwx /srv/web/
+setfacl -d -m u:ci-bot:rwx /srv/web/   # apply to all future files too
+```
 
 ---
 

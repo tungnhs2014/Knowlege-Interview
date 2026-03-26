@@ -23,7 +23,7 @@
 | 1 — Nền tảng | 5 | 🔴 bắt buộc | ✅ |
 | 2 — File I/O | 9 | 🔴 bắt buộc | ✅ |
 | 3 — Process | 11 | 🔴 core Embedded | ✅ |
-| 4 — Signals | 5 | 🔴 core Embedded | ⬜ |
+| 4 — Signals | 5 | 🔴 core Embedded | 🔄 |
 | 5 — Memory | 3 | 🔴 core Embedded | ⬜ |
 | 6 — Threads | 5 | 🔴 concurrency | ⬜ |
 | 7 — IPC | 10 | 🟡 inter-process | ⬜ |
@@ -95,15 +95,15 @@
 
 ---
 
-## CHAPTER 4 — Signals
+## CHAPTER 4 — Signals ✅
 
 | # | Topic | TLPI | DevLinux | Status | Knowledge Doc |
 |---|-------|------|----------|--------|---------------|
-| 4.1 | Signals Fundamentals — disposition, `sigaction()`, `kill()`, mask | Ch20 | 04 | ⬜ | — |
-| 4.2 | Signal Handlers — async-signal-safe, `SA_SIGINFO`, `sigaltstack()` | Ch21 | 04 | ⬜ | — |
-| 4.3 | Signals Advanced — realtime signals, `signalfd()`, `sigqueue()` | Ch22 | 04 | ⬜ | — |
-| 4.4 | Timers & Sleeping — `setitimer()`, `timer_create()`, `timerfd` | Ch23 | — | ⬜ | — |
-| 4.5 | Time API — `clock_gettime()`, `gettimeofday()`, process time | Ch10 | — | ⬜ | — |
+| 4.1 | Signals Fundamentals — disposition, `sigaction()`, `kill()`, mask | Ch20 | 04 | ✅ | [ch04_signals_core.md](knowledge/linux_system/ch04_signals_core.md) |
+| 4.2 | Signal Handlers — async-signal-safe, `SA_SIGINFO`, `sigaltstack()` | Ch21 | 04 | ✅ | [ch04_signals_core.md](knowledge/linux_system/ch04_signals_core.md) |
+| 4.3 | Signals Advanced — realtime signals, `signalfd()`, `sigqueue()` | Ch22 | 04 | ✅ | [ch04_signals_core.md](knowledge/linux_system/ch04_signals_core.md) |
+| 4.4 | Timers & Sleeping — `setitimer()`, `timer_create()`, `timerfd` | Ch23 | — | ✅ | [ch04_signals_time.md](knowledge/linux_system/ch04_signals_time.md) |
+| 4.5 | Time API — `clock_gettime()`, `gettimeofday()`, process time | Ch10 | — | ✅ | [ch04_signals_time.md](knowledge/linux_system/ch04_signals_time.md) |
 
 ---
 

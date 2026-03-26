@@ -41,6 +41,66 @@
 
 ---
 
+## System Context
+
+### Where these topics sit in the Linux system
+
+```
+             User Programs
+                  ↕  stat() / open() / chmod() / link() / rename() / ...
+             VFS Layer
+          ┌──────┴──────────────────┐
+    Filesystem Driver             Permission Subsystem
+    (ext4 / xfs / btrfs)         (uid/gid/mode + ACL)
+          ↕                             ↕
+    Block I/O Layer              Inode Cache (in-memory)
+          ↕
+    Storage Hardware
+```
+
+- **Topic 2.4 — Filesystems & Inodes**: The storage layer. Defines how files are physically organized on disk and how the kernel represents them in memory (inode = file identity).
+- **Topic 2.5 — File Attributes & Permissions**: The security layer. Every file access triggers a permission check against `st_mode` + UID/GID vs process credentials.
+- **Topic 2.6 — Directories & Links**: The naming layer. Translates human-readable paths into inode numbers; manages the relationship between names and data blocks.
+
+### Subsystem interactions
+
+- **File I/O (ch02_file_io_core)**: `open()`, `read()`, `write()` operate on inodes fetched by the filesystem driver. All I/O flows through the inode structures described in topic 2.4.
+- **Process Credentials (ch01)**: Permission checking (topic 2.5) compares `st_uid`/`st_gid` against the process's effective UID/GID, which may be elevated by SUID bits.
+- **Namespaces / Containers**: Mount namespaces isolate the mount table per container. `chroot()` (topic 2.6) provides a simpler, weaker filesystem isolation mechanism.
+- **Block I/O Layer**: The filesystem driver translates file reads/writes into block-device operations. Journaling (topic 2.4) ensures inode metadata changes survive crashes.
+
+### Failure scenarios
+
+**Topic 2.4 — Filesystems & Inodes:**
+
+| Failure | Symptom | Root cause |
+|---------|---------|------------|
+| Filesystem mounts read-only | `EROFS` on any write | Journal recovery failed; hardware write error detected at mount |
+| Inode exhaustion | `ENOSPC` but `df -h` shows free space | All inodes allocated; `df -i` shows 0% inode free |
+| Superblock corrupt | Kernel refuses to mount | Power loss mid-operation; recover with `e2fsck -b 32768 /dev/sdX` |
+| Journal replay fails at boot | Forced `fsck`, `dmesg` shows ext4 errors | Incomplete transaction at crash |
+
+**Topic 2.5 — File Attributes & Permissions:**
+
+| Failure | Symptom | Root cause |
+|---------|---------|------------|
+| `stat()` returns `ENOENT` | File visible with `ls` but not statable | Dangling symlink — `lstat()` would succeed |
+| `EACCES` despite correct file bits | "Permission denied" | Missing execute (`x`) bit on a **directory** somewhere in the path |
+| SUID program runs at wrong privilege | Runs as invoking user, not file owner | SUID bit absent, or file is on a `nosuid` mount |
+| `chown()` silently clears SUID | Binary loses privilege after ownership change | Kernel security: ownership transfer always clears SUID/SGID |
+
+**Topic 2.6 — Directories & Links:**
+
+| Failure | errno | Root cause |
+|---------|-------|------------|
+| `rename()` fails | `EXDEV` | Source and destination are on different filesystems |
+| `unlink()` succeeds, disk space not freed | — | File still open by another process; freed when last FD closes |
+| `rmdir()` fails | `ENOTEMPTY` | Directory contains hidden files (`.gitkeep`, `.DS_Store`, etc.) |
+| Hard link creation fails | `EPERM` / `EXDEV` | Cross-filesystem attempt, or linking a directory |
+| Symlink access fails with `ENOENT` | "No such file" | Dangling symlink — target was deleted or moved |
+
+---
+
 # Topic 2.4 — File Systems & Inodes
 
 ---
@@ -1090,6 +1150,102 @@ Reality:
 | `rename()` (cross fs) | New inode created | Copied | Old removed, new created |
 | `link()` | nlink++ | Untouched | New entry added |
 | `open() + close()` | i_count changes | Untouched | Untouched |
+
+---
+
+## Debugging
+
+### Tools for Filesystem & Inode Issues
+
+| Problem | Tool | Command |
+|---------|------|---------| 
+| Check inode exhaustion | `df -i` | `df -i /path` |
+| Find inode number of a file | `stat` | `stat file.txt` |
+| Find all hard links to an inode | `find` | `find / -inum <inode#> 2>/dev/null` |
+| Check which process has a file open | `lsof` | `lsof /path/to/file` |
+| Find what keeps a mount busy | `fuser` | `fuser -v /mnt/point` |
+| Check active mount options | `/proc/mounts` | `cat /proc/mounts` |
+| Inspect filesystem errors | `dmesg` | `dmesg \| grep -iE 'ext4\|xfs\|error\|corrupt'` |
+| Repair corrupt filesystem | `e2fsck` | `e2fsck -f /dev/sda1` (unmounted only) |
+
+### Diagnosing Permission Problems
+
+```bash
+# Symptom: "Permission denied" even though ls -l looks correct
+# Check every directory in the path for missing execute bit
+namei -l /path/to/file
+
+# Check effective permissions including ACL
+getfacl /path/to/file
+
+# Check if file is on a nosuid / noexec mount
+mount | grep $(df /path/to/file | tail -1 | awk '{print $1}')
+```
+
+### Diagnosing Disk-space / Link Issues
+
+```bash
+# File deleted but disk space not freed — find who still has it open
+lsof | grep deleted
+
+# Check if a symlink target exists
+test -e /path/to/symlink && echo "valid" || echo "dangling"
+
+# Find files with multiple hard links
+find /path -type f -links +1
+```
+
+---
+
+## Real-world Usage
+
+### Atomic Config File Update (topic 2.6 rename)
+
+```c
+// Write to a temp file, then atomically replace target
+// Readers always see either old or new — never a partial write
+int fd = open("/etc/app/config.tmp", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+write(fd, new_config, len);
+fsync(fd);   // ensure data is on disk before making it visible
+close(fd);
+rename("/etc/app/config.tmp", "/etc/app/config.conf");  // atomic
+```
+
+### Temporary File That Auto-Cleans (topic 2.6 unlink pattern)
+
+```c
+// Create, unlink immediately, use via FD
+// File invisible to other processes; cleaned up automatically on close or crash
+int fd = open("/tmp/work_XXXXXX", O_RDWR | O_CREAT | O_EXCL, 0600);
+unlink("/tmp/work_XXXXXX");  // remove directory entry now
+// fd still valid — data lives until close(fd)
+```
+
+### Check Space and Inodes Before a Large Operation
+
+```bash
+# Never forget inodes — a full inode table gives ENOSPC with free disk space
+df -h /path    # block space
+df -i /path    # inode space
+```
+
+### Shared Project Directory with Inherited Permissions
+
+```bash
+# Set SGID so all new files inherit the group (topic 2.5)
+chmod g+s /srv/project/
+
+# Combine with default ACL for fine-grained inherited permissions (topic 2.9)
+setfacl -d -m g:devops:rwx /srv/project/
+```
+
+### Diagnosing "Device Busy" Before Unmount
+
+```bash
+# Find what is keeping /mnt/usb mounted (topic 2.4)
+fuser -v /mnt/usb
+lsof /mnt/usb
+```
 
 ---
 
