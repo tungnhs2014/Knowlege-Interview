@@ -24,7 +24,7 @@
 | 2 — File I/O | 9 | 🔴 bắt buộc | ✅ |
 | 3 — Process | 11 | 🔴 core Embedded | ✅ |
 | 4 — Signals | 5 | 🔴 core Embedded | 🔄 |
-| 5 — Memory | 3 | 🔴 core Embedded | ⬜ |
+| 5 — Memory | 3 | 🔴 core Embedded | ✅ |
 | 6 — Threads | 5 | 🔴 concurrency | ⬜ |
 | 7 — IPC | 10 | 🟡 inter-process | ⬜ |
 | 8 — Sockets & Networking | 6 | 🔴 networking | ⬜ |
@@ -111,9 +111,9 @@
 
 | # | Topic | TLPI | DevLinux | Status | Knowledge Doc |
 |---|-------|------|----------|--------|---------------|
-| 5.1 | Memory Allocation — `malloc/free`, heap, `brk()`, memory leak | Ch07 | 03 | ⬜ | — |
-| 5.2 | Memory Mappings (mmap) — `mmap()`, file mapping, device memory | Ch49 | — | ⬜ | — |
-| 5.3 | Virtual Memory Ops — `mprotect()`, `mlock()`, `madvise()` | Ch50 | — | ⬜ | — |
+| 5.1 | Memory Allocation — `malloc/free`, heap, `brk()`, memory leak | Ch07 | 03 | ✅ | [ch05_memory.md](knowledge/linux_system/ch05_memory.md) |
+| 5.2 | Memory Mappings (mmap) — `mmap()`, file mapping, device memory | Ch49 | — | ✅ | [ch05_memory.md](knowledge/linux_system/ch05_memory.md) |
+| 5.3 | Virtual Memory Ops — `mprotect()`, `mlock()`, `madvise()` | Ch50 | — | ✅ | [ch05_memory.md](knowledge/linux_system/ch05_memory.md) |
 
 ---
 
