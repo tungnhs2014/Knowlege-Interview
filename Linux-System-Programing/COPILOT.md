@@ -101,6 +101,70 @@ AI phải:
 
 Không được **copy nguyên văn tài liệu**.
 
+## Learning Map First
+
+Trước khi đọc training docs cho một topic, AI phải đọc:
+
+```
+LINUX_SYSTEM_LEARNING_MAP.md
+```
+
+Mục tiêu:
+
+* xác định topic đang học map tới chapter/module nào
+* xác định source nào cần dùng: TLPI, DevLinux, hay cả hai
+* tránh bỏ sót nguồn thực hành nếu learning map có chỉ định
+
+Nếu một topic trong learning map có cột DevLinux khác `—`, AI phải xem đó là **nguồn training bắt buộc** bên cạnh TLPI (nếu TLPI cũng được chỉ định).
+
+## DevLinux Source Rule
+
+Project hiện có 2 source training chính:
+
+* `docs/Linux-Programming-Interface/`
+* `docs/Linux-Programming-DevLinux/`
+
+Khi học một topic:
+
+* nếu learning map chỉ định TLPI → đọc TLPI trước
+* nếu learning map chỉ định DevLinux → đọc DevLinux trước hoặc song song, tùy context
+* nếu learning map chỉ định cả TLPI và DevLinux → AI phải đọc **cả hai**
+
+Vai trò gợi ý:
+
+* **TLPI**: lý thuyết hệ thống, cơ chế, semantics, chuẩn API
+* **DevLinux**: diễn giải thực hành, build flow, project examples, exercise orientation
+
+Khi tổng hợp kiến thức, AI phải:
+
+* ưu tiên correctness từ TLPI / source gốc mạnh hơn
+* tận dụng DevLinux để bổ sung intuition, workflow, ví dụ build/run
+* nói rõ nếu một phần chỉ có trong một source
+
+## DevLinux Reading Order
+
+Khi dùng source:
+
+```
+docs/Linux-Programming-DevLinux/
+```
+
+AI phải đọc theo thứ tự:
+
+1. `docs/Linux-Programming-DevLinux/INDEX.md`
+2. `docs/Linux-Programming-DevLinux/README.md`
+3. module README tương ứng với mapping trong learning map
+4. exercise/project files liên quan nếu topic cần ví dụ thực hành
+
+Ví dụ:
+
+* topic `10.1 Shared Library Fundamentals` có DevLinux `01`
+* AI phải đọc:
+  * `docs/Linux-Programming-DevLinux/INDEX.md`
+  * `docs/Linux-Programming-DevLinux/README.md`
+  * `docs/Linux-Programming-DevLinux/01-General-Knowlege/README.md`
+  * đúng subsection liên quan (`1.3 Static and Shared Libraries in Linux`)
+
 INDEX Priority
 
 Nếu trong thư mục docs/ hoặc subfolder có file:
@@ -138,6 +202,8 @@ AI ưu tiên theo thứ tự:
 5. AI inference
 
 Nếu thông tin không chắc chắn → hỏi user.
+
+Khi learning map chỉ định nhiều source cho cùng một topic, AI không được tự ý bỏ qua source phụ nếu source đó có nội dung liên quan rõ ràng.
 
 ---
 

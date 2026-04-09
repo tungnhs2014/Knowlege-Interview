@@ -28,8 +28,8 @@
 | 6 — Threads | 5 | 🔴 concurrency | ⬜ |
 | 7 — IPC | 10 | 🟡 inter-process | ⬜ |
 | 8 — Sockets & Networking | 6 | 🔴 networking | ⬜ |
-| 9 — Embedded Special | 3 | 🟡 hardware-level | ⬜ |
-| 10 — System & Security | 4 | 🟠 hoàn thiện | ⬜ |
+| 9 — Embedded Special | 3 | 🟡 hardware-level | ✅ |
+| 10 — System & Security | 4 | 🟠 hoàn thiện | ✅ |
 | **Tổng** | **62 topics** | | |
 
 ---
@@ -163,9 +163,9 @@
 
 | # | Topic | TLPI | DevLinux | Status | Knowledge Doc |
 |---|-------|------|----------|--------|---------------|
-| 9.1 | Alternative I/O Models — `select()`, `poll()`, `epoll` | Ch63 | — | ⬜ | — |
-| 9.2 | Terminals & termios — serial port, raw mode, `tcsetattr()` | Ch62 | — | ⬜ | — |
-| 9.3 | Pseudoterminals (PTY) — `posix_openpt()`, SSH, remote shell | Ch64 | — | ⬜ | — |
+| 9.1 | Alternative I/O Models — `select()`, `poll()`, `epoll` | Ch63 | — | ✅ | [ch09_io_multiplexing.md](knowledge/linux_system/ch09_io_multiplexing.md) |
+| 9.2 | Terminals & termios — serial port, raw mode, `tcsetattr()` | Ch62 | — | ✅ | [ch09_terminals.md](knowledge/linux_system/ch09_terminals.md) |
+| 9.3 | Pseudoterminals (PTY) — `posix_openpt()`, SSH, remote shell | Ch64 | — | ✅ | [ch09_pty.md](knowledge/linux_system/ch09_pty.md) |
 
 ---
 
@@ -173,10 +173,10 @@
 
 | # | Topic | TLPI | DevLinux | Status | Knowledge Doc |
 |---|-------|------|----------|--------|---------------|
-| 10.1 | Shared Library Fundamentals — `.so`, soname, `ldconfig`, PIC | Ch41 | 01 | ⬜ | — |
-| 10.2 | Advanced Shared Libraries — `dlopen/dlsym()`, `LD_PRELOAD` | Ch42 | — | ⬜ | — |
-| 10.3 | Linux Capabilities — `CAP_*`, least privilege, `capset()` | Ch39 | — | ⬜ | — |
-| 10.4 | Writing Secure Programs — input validation, race conditions | Ch38 | — | ⬜ | — |
+| 10.1 | Shared Library Fundamentals — `.so`, soname, `ldconfig`, PIC | Ch41 | 01 | ✅ | [ch10_shared_library_fundamentals.md](knowledge/linux_system/ch10_shared_library_fundamentals.md) |
+| 10.2 | Advanced Shared Libraries — `dlopen/dlsym()`, `LD_PRELOAD` | Ch42 | — | ✅ | [ch10_advanced_shared_libraries.md](knowledge/linux_system/ch10_advanced_shared_libraries.md) |
+| 10.3 | Linux Capabilities — `CAP_*`, least privilege, `capset()` | Ch39 | — | ✅ | [ch10_linux_capabilities.md](knowledge/linux_system/ch10_linux_capabilities.md) |
+| 10.4 | Writing Secure Programs — input validation, race conditions | Ch38 | — | ✅ | [ch10_writing_secure_programs.md](knowledge/linux_system/ch10_writing_secure_programs.md) |
 
 ---
 
