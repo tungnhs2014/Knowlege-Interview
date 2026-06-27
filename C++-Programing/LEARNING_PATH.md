@@ -97,7 +97,7 @@ below is routed into at least one learning-path topic.
 | `notion-8-2` | `docs/C++ Notion/Chapter 8-2 Exception Handling - Exception Safety & RAII.md` | 10, 13 |
 | `notion-8-3` | `docs/C++ Notion/Chapter 8-3 Exception Handling - noexcept, Stack Unwinding.md` | 10, 13 |
 | `notion-9-1` | `docs/C++ Notion/Chapter 9-1 File Handling - Basics to Advanced Operations.md` | 11, 13, 16 |
-| `notion-9-2` | `docs/C++ Notion/Chapter 9-2 File Handling - Interview Questions.md` | 11, 13, 18 |
+| `notion-9-2` | `docs/C++ Notion/Chapter 9-2 File Handling - Interview Questions.md` | 11, 18 |
 | `notion-10-1` | `docs/C++ Notion/Chapter 10-1 Namespaces.md` | 08, 12 |
 | `notion-10-2` | `docs/C++ Notion/Chapter 10-2 Preprocessor Directives.md` | 01, 06, 07, 15 |
 | `notion-10-3` | `docs/C++ Notion/Chapter 10-3 Type Casting.md` | 08, 12, 15 |
