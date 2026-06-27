@@ -1,0 +1,108 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * Learning-only overlay fragment.
+ *
+ * This shows the Device Tree shape for an I2C GPIO expander that is both:
+ * - a GPIO provider for reset/enable/LED style signals;
+ * - an interrupt provider for child devices connected to expander pins.
+ *
+ * Do not apply this overlay unchanged. Replace the target paths, GPIO
+ * controller phandles, I2C address, compatible string, and IRQ flags with
+ * values from your real board and real expander binding.
+ */
+
+/ {
+	compatible = "acme,learning-board";
+
+	/*
+	 * Fragment 0: add an IRQ-capable GPIO expander on a real I2C bus.
+	 *
+	 * Replace &i2c1 with the I2C controller used on your board.
+	 * Replace &gpio4 / line 29 with the SoC GPIO that receives the
+	 * expander's physical INT output.
+	 */
+	fragment@0 {
+		target = <&i2c1>;
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "okay";
+
+			expander: gpio@20 {
+				/*
+				 * Use your real chip binding here, for example:
+				 * "microchip,mcp23017", "nxp,pca9555", ...
+				 */
+				compatible = "vendor,my-gpio-expander";
+				reg = <0x20>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				#address-cells = <0>;
+				interrupt-parent = <&gpio4>;
+				interrupts = <29 8>; /* IRQ_TYPE_LEVEL_LOW */
+
+				gpio-line-names =
+					"EXP_IO0", "EXP_IO1", "EXP_IO2", "EXP_IO3",
+					"EXP_IO4", "EXP_IO5", "EXP_IO6", "EXP_IO7",
+					"EXP_IRQ_BUTTON", "EXP_SENSOR_IRQ",
+					"EXP_RESET", "EXP_ENABLE",
+					"EXP_IO12", "EXP_IO13", "EXP_IO14", "EXP_IO15";
+			};
+
+			learning_sensor: sensor@48 {
+				compatible = "vendor,learning-sensor";
+				reg = <0x48>;
+
+				reset-gpios = <&expander 10 1>; /* GPIO_ACTIVE_LOW */
+				enable-gpios = <&expander 11 0>; /* GPIO_ACTIVE_HIGH */
+
+				interrupt-parent = <&expander>;
+				interrupts = <9 2>; /* IRQ_TYPE_EDGE_FALLING */
+			};
+		};
+	};
+
+	/*
+	 * Fragment 1: examples of consumers using the expander.
+	 *
+	 * gpio-leds consumes the expander as a GPIO provider.
+	 * gpio-keys consumes it as both GPIO provider and IRQ provider.
+	 * The sensor node consumes expander GPIO 9 as its interrupt line.
+	 */
+	fragment@1 {
+		target-path = "/";
+
+		__overlay__ {
+			expander_leds {
+				compatible = "gpio-leds";
+
+				status_led {
+					label = "learning:expander:status";
+					gpios = <&expander 0 0>; /* GPIO_ACTIVE_HIGH */
+					default-state = "off";
+				};
+			};
+
+			expander_keys {
+				compatible = "gpio-keys";
+
+				user_button {
+					label = "expander-user-button";
+					gpios = <&expander 8 1>; /* GPIO_ACTIVE_LOW */
+					interrupt-parent = <&expander>;
+					interrupts = <8 2>; /* IRQ_TYPE_EDGE_FALLING */
+					linux,code = <28>; /* KEY_ENTER */
+					debounce-interval = <20>;
+				};
+			};
+		};
+	};
+};

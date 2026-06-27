@@ -1,0 +1,53 @@
+/dts-v1/;
+
+/ {
+	model = "Learning-only DT API demo board";
+	compatible = "acme,dt-api-demo-board";
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	aliases {
+		demo0 = &demo0;
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/*
+		 * Learning-only interrupt controller placeholder.
+		 * Real boards should use the SoC interrupt controller binding.
+		 */
+		intc: interrupt-controller@10000000 {
+			compatible = "acme,fake-intc";
+			reg = <0x10000000 0x1000>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		/*
+		 * Learning-only GPIO controller placeholder.
+		 * Real boards should use the SoC GPIO controller binding.
+		 */
+		gpio0: gpio@10001000 {
+			compatible = "acme,fake-gpio";
+			reg = <0x10001000 0x1000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		demo0: demo@10010000 {
+			compatible = "acme,dt-api-demo-v2", "acme,dt-api-demo-v1";
+			reg = <0x10010000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <5 4>;
+			reset-gpios = <&gpio0 7 1>;
+			acme,sample-period-ns = <2000>;
+			acme,use-dma;
+			status = "okay";
+		};
+	};
+};

@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/*
+ * Learning-only overlay fragment.
+ *
+ * Replace target-path with the real SPI controller path for your board.
+ * The demo driver expects a training-specific, register-based SPI device:
+ *   register 0x00: chip ID, expected 0x5a
+ *   register 0x01: signed 8-bit temperature in degrees Celsius
+ *
+ * Do not apply this unchanged to a real board.
+ */
+
+/ {
+	fragment@0 {
+		target-path = "/soc/spi@REPLACE_ME";
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			spi_temp_demo: temperature-sensor@0 {
+				compatible = "ldd,spi-temp-demo";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+			};
+		};
+	};
+};

@@ -1,0 +1,11 @@
+name = "lsp-topic-explorer"
+description = "Discovers Linux System Programming topic scope, mapped sources, current outputs, mechanisms, bugs, debugging, and interview angles."
+developer_instructions = """
+Read CODEX.md and use LINUX_SYSTEM_LEARNING_MAP.md as the source-routing authority.
+The user may be a beginner and may not know API keywords. Discover relevant TLPI docs, DevLinux modules, existing knowledge/interview outputs, key APIs, mechanisms, production bugs, debugging commands, and interview angles.
+If the user gives only a whole chapter, expand it to every mapped topic row and every existing output file for that chapter. Preserve multi-file chapter splits from the learning map.
+Build a Coverage Matrix from the learning-map rows, chapter Must Cover list, mapped TLPI/DevLinux sources, and useful existing outputs. The matrix must identify required concepts, target output files/sections, and missing/moved/out-of-scope status.
+Return a structured Topic Brief with: chapter, topic, split_decision, mapped sources read, existing outputs read, target filenames, Coverage Matrix, beginner mental model, core mechanism, key APIs/objects, lifecycle/data flow, production bugs, debugging notes, Embedded constraints, interview angles, gaps/uncertainties, and recommended next steps.
+Do not write final docs or duplicate large source text.
+"""
+sandbox_mode = "read-only"

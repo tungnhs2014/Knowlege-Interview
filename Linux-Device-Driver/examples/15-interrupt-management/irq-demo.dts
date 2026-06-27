@@ -1,0 +1,37 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * Learning-only overlay fragment.
+ *
+ * Replace:
+ * - target-path with the real parent bus path for your board
+ * - reg with a safe, documented MMIO range for your demo device
+ * - interrupts with the real parent interrupt-controller specifier
+ *
+ * Do not apply this unchanged to a real board.
+ */
+
+/ {
+	fragment@0 {
+		target-path = "/";
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			irq_demo0: irq-demo@80000000 {
+				compatible = "training,irq-demo";
+				reg = <0x80000000 0x1000>;
+
+				/*
+				 * Example 3-cell GIC-style interrupt specifier:
+				 *   0 = SPI, 56 = interrupt number, 4 = level high.
+				 * Replace this with your SoC binding's real format.
+				 */
+				interrupt-parent = <&intc>;
+				interrupts = <0 56 4>;
+			};
+		};
+	};
+};

@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/*
+ * Learning-only overlay fragment.
+ *
+ * Replace target-path with the real I2C controller path for your board.
+ * The demo driver understands a TMP102-like temperature register format,
+ * but the compatible string is intentionally training-specific so it does
+ * not bind over an in-tree production TMP102 driver by accident.
+ */
+
+/ {
+	fragment@0 {
+		target-path = "/soc/i2c@REPLACE_ME";
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			i2c_tmp102_demo: temperature-sensor@48 {
+				compatible = "ldd,tmp102-demo";
+				reg = <0x48>;
+			};
+		};
+	};
+};

@@ -1,0 +1,67 @@
+/dts-v1/;
+
+/ {
+	model = "LLD Example Device Tree Board";
+	compatible = "lld,example-board-v1";
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x10000000>;
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		interrupt-parent = <&intc>;
+
+		intc: interrupt-controller@10001000 {
+			compatible = "lld,fake-intc";
+			reg = <0x10001000 0x1000>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			#address-cells = <0>;
+		};
+
+		gpio0: gpio@10002000 {
+			compatible = "lld,fake-gpio";
+			reg = <0x10002000 0x1000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		uart0: serial@10000000 {
+			compatible = "lld,fake-uart-v2", "lld,fake-uart-v1";
+			reg = <0x10000000 0x1000>;
+			interrupts = <10 4>;
+			status = "okay";
+		};
+
+		demo0: demo-device@10010000 {
+			compatible = "lld,demo-device";
+			reg = <0x10010000 0x1000>;
+			interrupts = <11 4>;
+			reset-gpios = <&gpio0 7 1>;
+			status = "okay";
+		};
+
+		unused0: demo-device@10020000 {
+			compatible = "lld,demo-device";
+			reg = <0x10020000 0x1000>;
+			interrupts = <12 4>;
+			status = "disabled";
+		};
+	};
+};

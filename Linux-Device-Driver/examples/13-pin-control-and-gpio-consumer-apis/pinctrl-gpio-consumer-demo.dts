@@ -1,0 +1,60 @@
+/dts-v1/;
+
+/*
+ * Learning-only DTS snippet.
+ *
+ * Do not boot this file as-is. The GPIO and pinctrl providers are placeholders.
+ * Replace gpio1, gpio2, pinctrl, and the pin configuration syntax with values
+ * from your SoC binding and board schematic.
+ */
+
+/ {
+	compatible = "acme,learning-board";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	/*
+	 * Placeholder GPIO providers. Real boards already define these in the
+	 * SoC .dtsi with compatible, reg, interrupts, clocks, and pin ranges.
+	 */
+	gpio1: gpio-controller-1 {
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	gpio2: gpio-controller-2 {
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	pinctrl: pin-controller {
+		/*
+		 * These child nodes are intentionally generic placeholders.
+		 * Real pinctrl nodes are controller-specific, such as fsl,pins,
+		 * pinctrl-single,pins, or pinmux plus bias properties.
+		 */
+		demo_default_pins: demo-default-pins {
+			/* Example intent: reset/enable/event pins muxed as GPIO. */
+		};
+
+		demo_sleep_pins: demo-sleep-pins {
+			/* Example intent: low-leakage sleep configuration. */
+		};
+	};
+
+	pinctrl_gpio_consumer_demo {
+		compatible = "acme,pinctrl-gpio-consumer-demo";
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&demo_default_pins>;
+		pinctrl-1 = <&demo_sleep_pins>;
+
+		reset-gpios = <&gpio1 7 1>;  /* GPIO_ACTIVE_LOW */
+		enable-gpios = <&gpio1 8 0>; /* GPIO_ACTIVE_HIGH */
+		event-gpios = <&gpio2 3 1>;  /* GPIO_ACTIVE_LOW */
+	};
+};
