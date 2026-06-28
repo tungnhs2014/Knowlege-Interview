@@ -263,6 +263,32 @@ External sources were used for targeted validation of current SPI driver-model t
 
 The Chapter 17 example module was build-checked locally against the available `6.8.0-124-generic` kernel headers, and the DTS overlay was compile/decompile checked with `dtc`. These are local validation checks, not external sources. Chapter 17 was marked `covered` only after final review returned PASS.
 
+## Chapter 18 - Regmap API
+
+External sources were used for targeted validation of current regmap header/API drift and current kernel documentation coverage.
+
+| Source | Purpose |
+| --- | --- |
+| `https://github.com/torvalds/linux/blob/master/include/linux/regmap.h` | Validated current `struct regmap_config` field drift, bus initialization prototypes, managed init helpers, `use_single_read`/`use_single_write`, no-increment callbacks/tables, cache type field, endian fields, and bus callbacks. |
+| `https://docs.kernel.org/driver-api/index.html` | Confirmed current kernel driver API documentation organization and that no single comprehensive regmap tutorial was found in the browsed driver API index. |
+
+The Chapter 18 example module was build-checked locally against the available `6.8.0-124-generic` kernel headers, and the DTS was compile-checked with `dtc -@ -I dts -O dtb`. These are local validation checks, not external sources. Chapter 18 was marked `covered` only after Step 4/final review returned PASS.
+
+## Chapter 19 - Regmap IRQ And MFD/Syscon
+
+External sources were used for targeted validation of current regmap IRQ, MFD, syscon, and binding API drift.
+
+| Source | Purpose |
+| --- | --- |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/regmap.h` | Validated current `struct regmap_irq`, `struct regmap_irq_type`, `struct regmap_irq_chip`, `regmap_add_irq_chip()`, `devm_regmap_add_irq_chip()`, fwnode variants, `regmap_irq_chip_get_base()`, `regmap_irq_get_virq()`, and `regmap_irq_get_domain()`. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/drivers/base/regmap/regmap-irq.c` | Validated current regmap IRQ implementation: threaded parent IRQ with `IRQF_ONESHOT`, IRQ domain setup, child IRQ mapping, and `handle_nested_irq()` dispatch. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/mfd/core.h` | Validated current `struct mfd_cell`, `mfd_get_cell()`, `mfd_add_devices()`, `devm_mfd_add_devices()`, `mfd_remove_devices()`, and field drift. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/mfd/syscon.h` | Validated current syscon lookup helper prototypes and `CONFIG_MFD_SYSCON` fallback behavior. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/Documentation/devicetree/bindings/mfd/syscon.yaml` | Validated current syscon YAML schema direction, `compatible` and `reg` requirements, and modern schema location. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/Documentation/devicetree/bindings/mfd/mfd.txt` | Validated the documented `simple-mfd` binding concept and example. |
+
+The Chapter 19 learning-only DTS example was compile-checked with `dtc -@ -I dts -O dtb` and roundtrip decompiled with `dtc -I dtb -O dts`. These are local validation checks, not external sources. No kernel module was built or loaded because the example is DTS-only and uses training-only fake bindings. Chapter 19 was marked `covered` only after Step 4/final review returned PASS.
+
 ## Chapter 20 - Kernel Memory Management For Drivers
 
 External sources were used to correct stale internal allocator, highmem, devres, DMA-address, and debugging guidance and to validate current version-sensitive APIs.

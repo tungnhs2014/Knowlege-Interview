@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/*
+ * Learning-only overlay fragment.
+ *
+ * Replace target-path with the real I2C controller path for your board.
+ * The compatible string is intentionally training-specific so this example
+ * does not bind to a production sensor by accident.
+ */
+
+/ {
+	fragment@0 {
+		target-path = "/soc/i2c@REPLACE_ME";
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			regmap_temp_demo: temperature-sensor@48 {
+				compatible = "ldd,regmap-temp-demo";
+				reg = <0x48>;
+			};
+		};
+	};
+};
