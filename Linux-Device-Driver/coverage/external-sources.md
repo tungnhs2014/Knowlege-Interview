@@ -321,6 +321,65 @@ External sources were used to correct stale or invalid internal DMA examples and
 
 The Chapter 21 learning-only module was build/modpost checked locally against the available `6.8.0-124-generic` kernel headers and passed strict `checkpatch.pl --no-tree --strict --file` with zero findings. These are local validation checks, not external sources. Privileged module loading, a real DMA transfer, non-coherent target behavior, IOMMU fault injection, and `dmatest` execution were not performed. Chapter 21 was marked `covered` only after Step 4/final review returned PASS.
 
+## Chapter 22 - Common Clock Framework
+
+External sources were used to correct v4.19-era CCF API drift and validate current provider, consumer, and Device Tree binding behavior.
+
+| Source | Purpose |
+| --- | --- |
+| `https://raw.githubusercontent.com/torvalds/linux/master/Documentation/driver-api/clk.rst` | Validated current high-level CCF split, `CONFIG_COMMON_CLK`, `struct clk_ops`, provider `struct clk_hw` pattern, callback capability matrix, and `clk_ignore_unused` debug behavior. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/clk-provider.h` | Validated current provider-side API drift: `struct clk_parent_data`, current `struct clk_init_data`, provider `clk_hw_*` helpers, managed helpers, parent-data/parent-hw variants, `CLK_OPS_PARENT_ENABLE`, and current OF provider helpers. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/clk.h` | Validated current consumer-side API drift: bulk APIs, optional clocks, managed enabled/prepared helpers, rate-exclusive helpers, rate range, phase/duty-cycle APIs, and clock notifiers. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/Documentation/devicetree/bindings/clock/clock-bindings.txt` | Validated that the old common clock text binding has moved to DT schema and remains useful only as historical binding context. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/Documentation/devicetree/bindings/clock/fixed-clock.yaml` | Validated current fixed-clock YAML requirements: `compatible = "fixed-clock"`, `#clock-cells = <0>`, required `clock-frequency`, optional `clock-accuracy`, and `clock-output-names`. |
+
+The Chapter 22 learning-only DTS example was compile-checked with `dtc -@ -I dts -O dtb` and roundtrip decompiled with `dtc -I dtb -O dts`. These are local validation checks, not external sources. No kernel module was built or loaded because the example is DTS-only and uses training-only fake consumer bindings. Chapter 22 was marked `covered` only after Step 4/final review returned PASS.
+
+## Chapter 23 - Regulator Framework
+
+External sources were used to validate current regulator consumer/provider API drift, current binding behavior, and version-sensitive helper availability because the primary internal regulator chapter contains older board-file and manual-registration patterns.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/driver-api/regulator.html` | Validated current regulator overview: consumer/provider split, machine constraints, sysfs/debug role, consumer APIs, bulk helpers, optional/exclusive/get-enable helpers, load/mode behavior, notifier/error APIs, and provider registration concepts. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/regulator/consumer.h` | Validated current consumer API drift: `devm_regulator_get_optional()`, `devm_regulator_get_enable()`, `devm_regulator_get_enable_optional()`, bulk helpers, load/current/voltage APIs, error flags, notifiers, and opaque `struct regulator *` use. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/regulator/driver.h` | Validated current provider API drift: `struct regulator_desc`, `struct regulator_ops`, `struct regulator_config`, `devm_regulator_register()`, linear range helpers, active discharge, bypass, pull-down, error-flag/provider callbacks, and provider-private data accessors. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/regulator/machine.h` | Validated current `struct regulation_constraints`, valid operation/mode masks, suspend-state fields, `always_on`, `boot_on`, coupling, and machine-constraint concepts. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/Documentation/devicetree/bindings/regulator/regulator.yaml` | Validated current common regulator binding properties and YAML schema direction. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/Documentation/devicetree/bindings/regulator/fixed-regulator.yaml` | Validated current fixed-regulator binding concepts, fixed-voltage constraints, GPIO-controlled enable properties, and delay/startup fields for the learning DTS example. |
+
+The Chapter 23 learning-only DTS example was compile-checked with `dtc -@ -I dts -O dtb` and roundtrip decompiled with `dtc -I dtb -O dts`. These are local validation checks, not external sources. No kernel module was built or loaded because the example is DTS-only and uses training-only fake consumer bindings. Chapter 23 was marked `covered` only after Step 4/final review returned PASS following the optional-regulator `-ENODEV` fix.
+
+## Chapter 24 - Power Management
+
+External sources were used to validate current runtime PM, system sleep, wakeup, and PM helper behavior because the primary internal PM chapter targets Linux 4.19 and contains version-sensitive helper and binding-path details.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/power/runtime_pm.html` | Validated current runtime PM model, `pm_wq`, `struct dev_pm_info`, callback precedence, process-context defaults, `pm_runtime_irq_safe()`, usage/child counters, idle/suspend/resume rules, and helper behavior. |
+| `https://docs.kernel.org/driver-api/pm/devices.html` | Validated current device PM basics, system sleep versus runtime PM, wakeup policy, quiesced I/O expectations, subsystem collaboration, and interaction between runtime-suspended devices and system-wide transitions. |
+| `https://docs.kernel.org/admin-guide/pm/sleep-states.html` | Validated current `/sys/power/state`, `/sys/power/mem_sleep`, `/sys/power/disk`, suspend-to-idle/standby/suspend-to-RAM/hibernation terminology, and sysfs interface framing. |
+| `https://docs.kernel.org/driver-api/pm/index.html` | Validated current PM documentation organization and modern topics missing from internal sources, including smart suspend and may-skip-resume flags. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/pm_runtime.h` | Validated current runtime PM helper drift, including `pm_runtime_get_sync()` usage-counter behavior on error, `pm_runtime_resume_and_get()`, `pm_runtime_put_autosuspend()`, and runtime PM guard macros. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/pm.h` | Validated current `struct dev_pm_ops`, `SYSTEM_SLEEP_PM_OPS`, `RUNTIME_PM_OPS`, `SET_*` macros, `DEFINE_SIMPLE_DEV_PM_OPS()`, and deprecation notes for `SIMPLE_DEV_PM_OPS()` and `UNIVERSAL_DEV_PM_OPS()`. |
+
+The Chapter 24 example is learning-only and README-only. No kernel module was built or loaded because a fake module cannot validate real runtime PM, wake IRQ, parent/child ordering, power domains, clocks, regulators, or system sleep behavior. Chapter 24 was marked `covered` only after Step 4/final review returned PASS.
+
+## Chapter 25 - IIO Framework
+
+External sources were used to validate current IIO core, buffered capture, trigger, and userspace ABI behavior because the primary internal IIO chapter contains version-sensitive helper and sysfs-layout details.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/driver-api/iio/core.html` | Validated current IIO core model: `iio_device_alloc()`, `iio_device_register()`, reverse-order unregister/free, sysfs attributes, `/dev/iio:deviceX`, channels, `struct iio_chan_spec`, and info-mask grouping. |
+| `https://docs.kernel.org/driver-api/iio/buffers.html` | Validated driver-API buffer concepts, scan elements, `length`, `enable`, and `/sys/bus/iio/devices/iio:deviceX/scan_elements/`. |
+| `https://docs.kernel.org/iio/iio_devbuf.html` | Validated current userspace buffer docs, `bufferY` directory wording, and enabling buffers after length and scan-element selection. |
+| `https://docs.kernel.org/driver-api/iio/triggers.html` | Validated trigger model, trigger sysfs paths, `current_trigger`, independent trigger sources, and managed trigger helper names. |
+| `https://docs.kernel.org/driver-api/iio/triggered-buffers.html` | Validated triggered-buffer setup order: initialize `indio_dev`, set up the triggered buffer before `iio_device_register()`, and clean up with `iio_triggered_buffer_cleanup()`. |
+| `https://docs.kernel.org/iio/adxl345.html` | Validated a current applied accelerometer example: raw/scale/calibration/sampling-frequency attributes, processed formula `(_raw + _offset) * _scale`, event examples, and userspace buffer flow. |
+
+The Chapter 25 learning-only module example was build-checked against local `6.8.0-124-generic` headers and then cleaned. Privileged runtime loading was not performed. Chapter 25 was marked `covered` only after Step 4/final review returned PASS following the IIO example scale fix.
+
 ## Chapter 32 - V4L2 Core, Video Device, And VB2 Capture
 
 External sources were used for targeted validation of current V4L2/vb2 behavior because the internal source material includes v4.19-era API details and version-sensitive media framework notes.
