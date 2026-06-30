@@ -380,6 +380,31 @@ External sources were used to validate current IIO core, buffered capture, trigg
 
 The Chapter 25 learning-only module example was build-checked against local `6.8.0-124-generic` headers and then cleaned. Privileged runtime loading was not performed. Chapter 25 was marked `covered` only after Step 4/final review returned PASS following the IIO example scale fix.
 
+## Chapter 26 - Input Device Drivers
+
+External sources were used to validate current input-core, evdev, event-code, and `gpio-keys` behavior because the primary internal input chapter contains legacy polled-input APIs and extraction issues in its examples.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/input/input.html` | Validated current high-level input architecture: device drivers report events into the input core, input handlers consume them, and evdev exposes `/dev/input/eventX` nodes as the preferred userspace interface. |
+| `https://docs.kernel.org/input/input-programming.html` | Validated current driver-programming flow: allocate/fill/register `struct input_dev`, set event capabilities, report events with `input_report_*()`, call `input_sync()`, use `open()`/`close()` for demand-driven resources, and prefer current polling helpers over legacy `input_polled_dev`. |
+| `https://docs.kernel.org/input/event-codes.html` | Validated event type/code/value framing, `EV_SYN`/`SYN_REPORT`, key/axis semantics, and userspace interpretation requirements. |
+| `https://github.com/torvalds/linux/blob/master/Documentation/devicetree/bindings/input/gpio-keys.yaml` | Validated current `gpio-keys`/`gpio-keys-polled` binding direction, including `compatible`, `autorepeat`, `poll-interval`, child key nodes, `gpios`/`interrupts`, `linux,code`, debounce, and wakeup properties. |
+| `https://raw.githubusercontent.com/torvalds/linux/master/include/uapi/linux/input-event-codes.h` | Validated the current UAPI location for input event type, key/button, and axis code constants. |
+
+The Chapter 26 learning-only module example was build-checked against local `6.8.0-124-generic` headers, passed strict `checkpatch.pl`, and then cleaned. Local headers expose the APIs used by the learner docs and example, including `devm_input_allocate_device()`, `input_setup_polling()`, `input_set_poll_interval()`, `input_set_capability()`, `input_set_abs_params()`, `input_set_drvdata()`, and `devm_request_threaded_irq()`. Local headers do not expose `input_set_poll_interval_min()` or `input_set_poll_interval_max()`, so learner docs avoid presenting those as current validated APIs for this target. Privileged runtime loading and evdev interaction were not performed. Chapter 26 was marked `covered` only after Step 4/final review returned PASS.
+
+## Chapter 27 - RTC And PWM Drivers
+
+External sources were used to validate current RTC userspace framing and current PWM state-based API guidance because the primary internal RTC/PWM chapters contain version-sensitive or older helper/API patterns.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/admin-guide/rtc.html` | Validated current user-facing RTC framing: RTCs normally track UTC wall-clock time, portable class devices are `/dev/rtcN`, `/sys/class/rtc/rtcN`, and `/proc/driver/rtc`, not every RTC has IRQ/alarm capability, and multiple RTCs can exist on embedded systems. |
+| `https://docs.kernel.org/driver-api/pwm.html` | Validated current PWM consumer guidance: `pwm_get()` / `devm_pwm_get()`, `pwm_apply_might_sleep()`, `pwm_apply_atomic()` gated by `pwm_might_sleep()`, `pwm_get_state()`, `pwm_get_args()`, sysfs files, `.apply()` / `.get_state()` provider preference, locking, and PM responsibility split. |
+
+Local headers were inspected at `/lib/modules/6.8.0-124-generic/build/include/linux/rtc.h` and `/lib/modules/6.8.0-124-generic/build/include/linux/pwm.h`. The learner docs avoid relying on stale RTC/PWM helper signatures where local headers differ from older internal examples. The Chapter 27 example is learning-only and DTS/README-based; no kernel module was built or loaded because a fake combined RTC/PWM module would not validate real RTC alarm wake or PWM waveform behavior. Chapter 27 was marked `covered` only after Step 4/final review returned PASS.
+
 ## Chapter 32 - V4L2 Core, Video Device, And VB2 Capture
 
 External sources were used for targeted validation of current V4L2/vb2 behavior because the internal source material includes v4.19-era API details and version-sensitive media framework notes.

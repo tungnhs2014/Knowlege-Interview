@@ -1,0 +1,64 @@
+/*
+ * Learning-only DTS fragments for topic 27.
+ *
+ * This is not a complete board file. Copy the relevant pieces into the real
+ * board DTS or overlay and validate them against the target kernel bindings.
+ */
+
+&i2c1 {
+	status = "okay";
+
+	rtc@68 {
+		compatible = "nxp,pcf8523";
+		reg = <0x68>;
+
+		/*
+		 * Add interrupt-parent/interrupts and wakeup-source only when
+		 * the RTC alarm IRQ is physically wired and wake-capable.
+		 *
+		 * interrupt-parent = <&gpio1>;
+		 * interrupts = <12 IRQ_TYPE_LEVEL_LOW>;
+		 * wakeup-source;
+		 */
+	};
+};
+
+/*
+ * The PWM provider node is SoC-specific and usually already exists in the
+ * SoC .dtsi file. The provider must be enabled and pinmuxed for PWM output.
+ */
+&pwm3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm3_out>;
+};
+
+/*
+ * Standard PWM LED consumer. This creates LED class ABI such as:
+ *
+ *   /sys/class/leds/status:white/brightness
+ *
+ * The pwms cell layout is provider-specific. This common shape means:
+ *   <provider channel period-ns flags>
+ */
+pwm_leds {
+	compatible = "pwm-leds";
+
+	status_white {
+		label = "status:white";
+		pwms = <&pwm3 0 20000000 0>;
+		max-brightness = <255>;
+	};
+};
+
+/*
+ * Optional alternative for a display backlight. Use this instead of pwm-leds
+ * when the PWM controls a panel backlight.
+ *
+ * backlight {
+ *	compatible = "pwm-backlight";
+ *	pwms = <&pwm3 0 20000000 0>;
+ *	brightness-levels = <0 4 8 16 32 64 128 255>;
+ *	default-brightness-level = <5>;
+ * };
+ */
