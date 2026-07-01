@@ -1,0 +1,58 @@
+/*
+ * Learning-only DTS fragments for topic 28.
+ *
+ * This is not a complete board DTS. Copy/adapt the relevant pieces into the
+ * real board file and validate against the target kernel's YAML bindings.
+ */
+
+/* Example 1: external watchdog kicked by a GPIO line. */
+/ {
+    watchdog {
+        compatible = "linux,wdt-gpio";
+        gpios = <&gpio3 9 GPIO_ACTIVE_LOW>;
+        hw_algo = "toggle";
+        hw_margin_ms = <1600>;
+        always-running;
+    };
+};
+
+/*
+ * Example 2: I2C EEPROM as an NVMEM provider.
+ *
+ * The provider is marked read-only for learning. Remove read-only only when
+ * the hardware, write-protect policy, and manufacturing/update flow are clear.
+ */
+&i2c1 {
+    status = "okay";
+
+    eeprom0: eeprom@50 {
+        compatible = "atmel,24c02";
+        reg = <0x50>;
+        pagesize = <8>;
+        read-only;
+
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        eth0_mac: mac-address@0 {
+            reg = <0x00 0x06>;
+        };
+
+        board_rev: board-revision@10 {
+            reg = <0x10 0x04>;
+        };
+
+        radio_calib: radio-calibration@20 {
+            reg = <0x20 0x10>;
+        };
+    };
+};
+
+/*
+ * Example consumer: an Ethernet controller reads its MAC from the NVMEM cell.
+ * Replace &ethernet0 with the real Ethernet controller node on your board.
+ */
+&ethernet0 {
+    nvmem-cells = <&eth0_mac>;
+    nvmem-cell-names = "mac-address";
+};

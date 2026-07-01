@@ -405,6 +405,35 @@ External sources were used to validate current RTC userspace framing and current
 
 Local headers were inspected at `/lib/modules/6.8.0-124-generic/build/include/linux/rtc.h` and `/lib/modules/6.8.0-124-generic/build/include/linux/pwm.h`. The learner docs avoid relying on stale RTC/PWM helper signatures where local headers differ from older internal examples. The Chapter 27 example is learning-only and DTS/README-based; no kernel module was built or loaded because a fake combined RTC/PWM module would not validate real RTC alarm wake or PWM waveform behavior. Chapter 27 was marked `covered` only after Step 4/final review returned PASS.
 
+## Chapter 28 - Watchdog And NVMEM Frameworks
+
+External sources were used to validate current watchdog kernel/userspace behavior and current NVMEM provider/consumer behavior because the primary internal watchdog/NVMEM chapters are based on Linux 4.19-era APIs and contain version-sensitive helper names and ABI details.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/watchdog/watchdog-kernel-api.html` | Validated current watchdog kernel-side API names, `struct watchdog_device`, `struct watchdog_ops`, helper functions, registration flow, driver-data handling, timeout initialization, and lifetime guidance. |
+| `https://docs.kernel.org/watchdog/watchdog-api.html` | Validated current userspace watchdog behavior through `/dev/watchdog`, keepalive writes/ioctls, magic close, timeout ioctls, boot/status reporting, and numbered watchdog device nodes. |
+| `https://docs.kernel.org/driver-api/nvmem.html` | Validated current NVMEM provider/consumer overview, sysfs behavior, cell-based access, and modern NVMEM concepts beyond the v4.19 internal source baseline. |
+
+Local headers were inspected at `/lib/modules/6.8.0-124-generic/build/include/linux/watchdog.h`, `/lib/modules/6.8.0-124-generic/build/include/uapi/linux/watchdog.h`, `/lib/modules/6.8.0-124-generic/build/include/linux/nvmem-provider.h`, `/lib/modules/6.8.0-124-generic/build/include/linux/nvmem-consumer.h`, and `/lib/modules/6.8.0-124-generic/build/include/linux/rtc.h`. The learner docs avoid stale NVMEM include spelling, avoid claiming `devm_nvmem_unregister()` exists on the validated local target, and use current watchdog helpers such as `watchdog_init_timeout()`, `watchdog_stop_on_reboot()`, and `watchdog_stop_on_unregister()`. The Chapter 28 example is learning-only and DTS/README-based; no kernel module was built or loaded because a fake watchdog/NVMEM module would not validate real reset behavior, NVMEM write policy, OTP/eFuse safety, or board-specific bindings. Chapter 28 was marked `covered` only after Step 4/final review returned PASS following the watchdog `.set_timeout` example fix.
+
+## Chapter 29 - Framebuffer And Display Basics
+
+External sources were used to validate current fbdev userspace/kernel behavior, DRM/KMS context, fbdev emulation, and firmware framebuffer handoff because the primary internal framebuffer chapter is older fbdev-centric material.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/fb/index.html` | Validated that current kernel documentation still groups fbdev material under Frame Buffer and links API, color map, deferred I/O, fbcon, internals, and mode database documentation. |
+| `https://docs.kernel.org/fb/api.html` | Validated current userspace framebuffer API framing and the caveat that driver behavior can differ. |
+| `https://docs.kernel.org/fb/framebuffer.html` | Validated the `/dev/fb*` model, framebuffer character-device major/minor framing, and read/write/seek/mmap programming model. |
+| `https://docs.kernel.org/fb/internals.html` | Validated current fbdev internal object roles, including `fb_fix_screeninfo`, `fb_var_screeninfo`, `fb_cmap`, `fb_info`, and driver-private data. |
+| `https://docs.kernel.org/gpu/drm-kms.html` | Validated DRM/KMS framebuffer object terminology, reference-count lifetime, and the modern DRM context around fbdev emulation. |
+| `https://docs.kernel.org/gpu/drm-kms-helpers.html` | Validated DRM/KMS fbdev-emulation helper context and shadow/deferred helper concepts. |
+| `https://docs.kernel.org/gpu/todo.html` | Validated the modern kernel direction that very simple fbdev drivers can often be converted by starting with a new DRM driver using simple KMS/SHMEM helpers. |
+| `https://docs.kernel.org/driver-api/aperture.html` | Validated framebuffer aperture ownership and handoff between generic firmware framebuffer drivers and native graphics drivers. |
+
+Local validation inspected `/lib/modules/6.8.0-124-generic/build/include/linux/fb.h`, `/lib/modules/6.8.0-124-generic/build/include/uapi/linux/fb.h`, `/lib/modules/6.8.0-124-generic/build/drivers/video/fbdev/Kconfig`, `/lib/modules/6.8.0-124-generic/build/drivers/gpu/drm/Kconfig`, and `/boot/config-6.8.0-124-generic`. The validated local target exposes `struct fb_ops`, `struct fb_info`, `register_framebuffer()`, `devm_register_framebuffer()`, `framebuffer_alloc()`, `framebuffer_release()`, `CONFIG_FB`, `CONFIG_DRM`, `CONFIG_DRM_FBDEV_EMULATION`, and `CONFIG_DRM_SIMPLEDRM`. The Chapter 29 example is learning-only userspace fbdev ABI code, was compile-checked with `gcc -Wall -Wextra -O2`, and no kernel module or fake display driver was built or loaded. Chapter 29 was marked `covered` only after Step 4/final review returned PASS.
+
 ## Chapter 32 - V4L2 Core, Video Device, And VB2 Capture
 
 External sources were used for targeted validation of current V4L2/vb2 behavior because the internal source material includes v4.19-era API details and version-sensitive media framework notes.
