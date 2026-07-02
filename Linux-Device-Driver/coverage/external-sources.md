@@ -434,6 +434,33 @@ External sources were used to validate current fbdev userspace/kernel behavior, 
 
 Local validation inspected `/lib/modules/6.8.0-124-generic/build/include/linux/fb.h`, `/lib/modules/6.8.0-124-generic/build/include/uapi/linux/fb.h`, `/lib/modules/6.8.0-124-generic/build/drivers/video/fbdev/Kconfig`, `/lib/modules/6.8.0-124-generic/build/drivers/gpu/drm/Kconfig`, and `/boot/config-6.8.0-124-generic`. The validated local target exposes `struct fb_ops`, `struct fb_info`, `register_framebuffer()`, `devm_register_framebuffer()`, `framebuffer_alloc()`, `framebuffer_release()`, `CONFIG_FB`, `CONFIG_DRM`, `CONFIG_DRM_FBDEV_EMULATION`, and `CONFIG_DRM_SIMPLEDRM`. The Chapter 29 example is learning-only userspace fbdev ABI code, was compile-checked with `gcc -Wall -Wextra -O2`, and no kernel module or fake display driver was built or loaded. Chapter 29 was marked `covered` only after Step 4/final review returned PASS.
 
+## Chapter 30 - Network Interface Drivers
+
+External sources were used to validate current netdev lifetime, NAPI, PHYLINK, and ethtool-netlink behavior because the primary internal NIC chapter is older and does not deeply teach modern NAPI or PHYLINK.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/networking/netdevices.html` | Validated current `struct net_device` lifetime rules, `alloc_netdev*()`/private-data lifetime, `register_netdev()`/`unregister_netdev()` ordering, RTNL caveats, and the rule that all initialization must be complete before registration makes the device visible. |
+| `https://docs.kernel.org/networking/napi.html` | Validated NAPI as the current networking event-handling mechanism, `struct napi_struct`, poll method, control API, scheduling, IRQ masking, non-idempotent enable/disable rules, and budget-driven RX/TX completion. |
+| `https://docs.kernel.org/networking/kapi.html` | Validated current kernel networking APIs and PHYLINK API descriptions used in learner-facing API anchors. |
+| `https://docs.kernel.org/networking/sfp-phylink.html` | Validated modern PHYLINK modes and conversion guidance from older PHYLIB-style drivers, including fixed links, in-band mode, `phylink_start()`, `phylink_stop()`, ethtool integration, and DT/FWNODE PHY connection. |
+| `https://docs.kernel.org/networking/ethtool-netlink.html` | Validated current userspace ethtool netlink framing and privilege model; learner docs focus on driver-side `struct ethtool_ops` rather than netlink internals. |
+
+Local headers were inspected at `/lib/modules/6.8.0-124-generic/build/include/linux/netdevice.h`, `/lib/modules/6.8.0-124-generic/build/include/linux/etherdevice.h`, `/lib/modules/6.8.0-124-generic/build/include/linux/skbuff.h`, `/lib/modules/6.8.0-124-generic/build/include/linux/ethtool.h`, `/lib/modules/6.8.0-124-generic/build/include/linux/phylink.h`, and `/lib/modules/6.8.0-124-generic/build/include/linux/phy.h`. The validated local target exposes the APIs used by the learner docs and learning-only example, including `struct net_device`, `struct net_device_ops`, `struct napi_struct`, `struct sk_buff`, `struct ethtool_ops`, `struct phylink`, `alloc_etherdev()`, `devm_alloc_etherdev()`, `register_netdev()`, `devm_register_netdev()`, `unregister_netdev()`, `free_netdev()`, `netif_napi_add()`, `napi_schedule()`, `napi_complete_done()`, `napi_gro_receive()`, `eth_type_trans()`, `eth_validate_addr()`, `eth_hw_addr_set()`, `device_get_ethdev_address()`, and `platform_get_ethdev_address()`. The Chapter 30 example is learning-only, build-checked against Linux `6.8.0-124-generic` headers, then cleaned; privileged runtime loading was not performed. Chapter 30 was marked `covered` only after Step 4/final review returned PASS following the example README ethtool wording fix.
+
+## Chapter 31 - PCI Device Drivers
+
+External sources were used to validate current PCI driver, MSI/MSI-X, managed cleanup, and DMA/API guidance because the primary internal PCI chapter is based on older kernel-era examples and includes stale API names.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/PCI/pci.html` | Validated current PCI driver registration, probe initialization sequence, resource handling, DMA setup, IRQ registration, and shutdown ordering. |
+| `https://docs.kernel.org/PCI/msi-howto.html` | Validated modern MSI/MSI-X APIs, vector flags, `pci_irq_vector()`, `PCI_IRQ_INTX`, `PCI_IRQ_ALL_TYPES`, and the managed cleanup interaction with `pcim_enable_device()`. |
+| `https://docs.kernel.org/driver-api/pci/pci.html` | Validated PCI support-library APIs, capability helpers, lookup/reference behavior, and current kernel API vocabulary. |
+| `https://docs.kernel.org/PCI/index.html` | Validated the official PCI documentation scope and adjacent advanced PCI topics. |
+
+Local headers were inspected at `/lib/modules/6.8.0-124-generic/build/include/linux/pci.h`, `/lib/modules/6.8.0-124-generic/build/include/linux/pci_ids.h`, and `/lib/modules/6.8.0-124-generic/build/include/linux/dma-mapping.h`. The validated local target exposes the APIs and symbols used by the learner docs, including `struct pci_driver`, `struct pci_device_id`, `module_pci_driver()`, `pcim_enable_device()`, `pci_set_master()`, `pci_request_regions()`, `pcim_iomap_regions()`, `pcim_iomap_table()`, `pci_alloc_irq_vectors()`, `pci_irq_vector()`, `PCI_IRQ_INTX`, deprecated alias `PCI_IRQ_LEGACY`, `PCI_IRQ_ALL_TYPES`, and `dma_set_mask_and_coherent()`. The Chapter 31 example is learning-only and README-only; no kernel module was built or loaded because a fake PCI module would not validate real BARs, DMA, interrupts, or device-specific register behavior. Chapter 31 was marked `covered` only after Step 4/final review returned PASS.
+
 ## Chapter 32 - V4L2 Core, Video Device, And VB2 Capture
 
 External sources were used for targeted validation of current V4L2/vb2 behavior because the internal source material includes v4.19-era API details and version-sensitive media framework notes.
