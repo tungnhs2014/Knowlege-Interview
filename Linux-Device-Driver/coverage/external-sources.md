@@ -493,3 +493,45 @@ External sources were used for targeted validation of current V4L2 userspace ABI
 | `https://man.archlinux.org/man/extra/v4l-utils/v4l2-compliance.1.en` | Validated current `v4l2-compliance` purpose, device/media-device options, streaming tests, verbose/trace options, and the recommendation to use a recent v4l-utils build when testing drivers. |
 
 The Chapter 34 example includes a build-checked userspace C program and no kernel module. It was compile-checked locally with `gcc -Wall -Wextra -O2`; no target-device streaming run is claimed here.
+
+## Chapter 35 - ASoC Codec, Component, DAI, And DAPM
+
+External sources were used to validate current ASoC component, codec, DAI, and DAPM behavior because the primary internal ASoC source is v4.19-era and API names/signatures are version-sensitive.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/sound/soc/overview.html` | Validated current ASoC design goals, the component split between codec/platform/machine roles, and why board-specific routing stays outside the codec driver. |
+| `https://docs.kernel.org/sound/soc/codec.html` | Validated codec-driver responsibilities, DAI and PCM configuration, controls, DAPM widgets/routes/events, regmap-based I/O, and mute handling. |
+| `https://docs.kernel.org/sound/soc/dapm.html` | Validated DAPM graph concepts, power domains, static widget/route registration, route syntax, stream-name matching, and event-based power sequencing. |
+
+Local headers were inspected at `/lib/modules/6.8.0-124-generic/build/include/sound/soc.h`, `/lib/modules/6.8.0-124-generic/build/include/sound/soc-component.h`, `/lib/modules/6.8.0-124-generic/build/include/sound/soc-dai.h`, `/lib/modules/6.8.0-124-generic/build/include/sound/soc-dapm.h`, and `/lib/modules/6.8.0-124-generic/build/include/sound/pcm_params.h`. The validated local target exposes `struct snd_soc_component_driver`, `struct snd_soc_dai_driver`, `struct snd_soc_dai_ops`, `mute_stream`, `devm_snd_soc_register_component()`, `snd_soc_component_update_bits()`, `SND_SOC_DAPM_AIF_IN()`, `SND_SOC_DAPM_AIF_OUT()`, and DAPM route/widget helpers used by the learner docs and example. The Chapter 35 example is learning-only, build-checked against Linux `6.8.0-124-generic` headers, then cleaned; privileged runtime loading was not performed. Chapter 35 was marked `covered` only after Step 4/final review returned PASS.
+
+## Chapter 36 - ASoC Machine Drivers And Audio Routing
+
+Local external validation was used because the primary internal ASoC machine-driver source is v4.19-era and current machine-driver examples are version-sensitive.
+
+| Source | Purpose |
+| --- | --- |
+| `/lib/modules/6.8.0-124-generic/build/include/sound/soc.h` | Validated current `struct snd_soc_dai_link_component`, `struct snd_soc_dai_link`, `struct snd_soc_card`, DAI-link helper macros, card registration APIs, and OF parsing helper availability. |
+| `/lib/modules/6.8.0-124-generic/build/include/sound/soc-dai.h` | Validated current DAI format, protocol, inversion, provider/consumer macros, and older master/slave aliases. |
+| `/lib/modules/6.8.0-124-generic/build/include/sound/soc-dapm.h` | Validated DAPM card/widget/route helper context used by board-level machine widgets and routes. |
+| `/lib/modules/6.8.0-124-generic/build/include/sound/soc-card.h` | Validated current card object context and card helper organization. |
+| `/lib/modules/6.8.0-124-generic/build/include/sound/simple_card_utils.h` | Validated current simple-card utility concepts and parser-helper context used by the DTS-based example. |
+
+The Chapter 36 example is learning-only and DTS/README-based. It was not build-checked as a standalone module because no module source is provided; the DTS is intentionally a board-adapted fragment that must be integrated into a real board DTS and validated against the target kernel binding schemas. Privileged runtime loading was not performed. Chapter 36 was marked `covered` only after Step 4/final review returned PASS.
+
+## Chapter 37 - Kernel Debugging And Tracing
+
+External sources were used to validate current dynamic-debug, tracefs/ftrace, event tracing, crash tracing, and driver-debugging behavior because the primary internal debugging chapter is v4.19-era and several paths and behaviors are version-sensitive.
+
+| Source | Purpose |
+| --- | --- |
+| `https://docs.kernel.org/admin-guide/dynamic-debug-howto.html` | Validated current dynamic-debug behavior, query language, selectors, `/proc/dynamic_debug/control`, and boot/module `dyndbg` caveats. |
+| `https://docs.kernel.org/trace/ftrace.html` | Validated current ftrace purpose, primary tracefs path `/sys/kernel/tracing`, backward-compatible `/sys/kernel/debug/tracing`, and the current tracefs file model. |
+| `https://docs.kernel.org/trace/events.html` | Validated event tracing, event `format` files, event/subsystem filters, filter-expression syntax, and trigger concepts. |
+| `https://docs.kernel.org/trace/debugging.html` | Validated tracing for crash debugging, `ftrace_dump_on_oops`, trace-buffer sizing, and persistent tracing buffer considerations. |
+| `https://docs.kernel.org/process/debugging/driver_development_debugging_guide.html` | Validated current driver-debugging tool categories, including `printk()`, `trace_printk`, `dev_dbg()`, custom tracepoints, ftrace, debugfs, KASAN, UBSAN, lockdep, PSI, and device coredump. |
+| `https://docs.kernel.org/admin-guide/sysctl/kernel.html` | Validated current `/proc/sys/kernel/ftrace_dump_on_oops` behavior and values, including all-CPU, original-CPU, and trace-instance modes. |
+| `https://docs.kernel.org/admin-guide/sysrq.html` | Validated current SysRq debugging access through `/proc/sys/kernel/sysrq` and `/proc/sysrq-trigger`. |
+
+The Chapter 37 example is learning-only and includes a tiny buildable module that creates a synthetic root device, timer, and workqueue target for `dev_info()`, `dev_dbg()`, dynamic debug, ftrace, and trace-event practice. It was build-checked against local `6.8.0-124-generic` headers, fixed so `interval_ms` is read-only after load, and then cleaned. Privileged runtime loading was not performed. Chapter 37 was marked `covered` only after Step 4/final review returned PASS.

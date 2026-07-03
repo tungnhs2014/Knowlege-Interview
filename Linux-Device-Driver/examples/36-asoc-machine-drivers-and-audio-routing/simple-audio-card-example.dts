@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Learning-only simple-audio-card fragment.
+ *
+ * This is not a complete board DTS. Integrate it into a real board DTS and
+ * replace &sai1, &codec0, &audio_mclk, and route names with board-specific
+ * values from the CPU DAI and codec bindings.
+ */
+
+/ {
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "training-simple-card";
+		simple-audio-card,format = "i2s";
+
+		/*
+		 * This codec endpoint provides bit clock and frame clock in this
+		 * learning example. Some boards use the CPU DAI as the provider.
+		 */
+		simple-audio-card,bitclock-master = <&dailink0_codec>;
+		simple-audio-card,frame-master = <&dailink0_codec>;
+
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Microphone", "Mic Jack";
+
+		simple-audio-card,routing =
+			"Headphone Jack", "HP_OUT",
+			"MIC_IN", "Mic Jack";
+
+		simple-audio-card,cpu {
+			sound-dai = <&sai1>;
+		};
+
+		dailink0_codec: simple-audio-card,codec {
+			sound-dai = <&codec0>;
+			clocks = <&audio_mclk>;
+		};
+	};
+};
