@@ -1,0 +1,90 @@
+Embedded C Developer
+1
+Viết Embedded C theo chuẩn công nghiệp
+Làm chủ MISRA C:2012, BARR-C:2018, C99/C11, Coding Standards, Build Automation (Make), Doxygen Documentation và kỹ thuật viết mã an toàn, dễ bảo trì cho các dự án Embedded.
+
+2
+Làm chủ Memory & Pointer nâng cao
+Hiểu sâu Memory Layout (Text, Data, BSS, Heap, Stack), Pointer, Double Pointer, Function Pointer, Struct, Union, Bit-field, Memory Alignment và tối ưu bộ nhớ cho hệ thống nhúng.
+
+3
+Thiết kế Firmware có khả năng mở rộng
+Xây dựng Hardware Abstraction Layer (HAL), Object-Oriented Programming bằng C, Callback, Command Pattern, Finite State Machine (FSM), Driver Architecture và Portable Firmware Design.
+
+4
+Xây dựng phần mềm an toàn & bảo mật
+Làm chủ Secure Standard I/O, Buffer Overflow, Format String Attack, Variadic Function, Macro, Defensive Programming và các kỹ thuật phòng tránh lỗi phổ biến trong ngôn ngữ C.
+
+5
+Debug, Testing & Quality Assurance
+Sử dụng GDB, Valgrind, AddressSanitizer, Static Analysis (clang-tidy, cppcheck), CMake, Unit Testing, Mock Testing, CI/CD và Performance Profiling để phát triển phần mềm chất lượng cao.
+
+6
+Hoàn thành dự án Embedded theo quy trình doanh nghiệp
+Xây dựng dự án Firmware hoàn chỉnh, áp dụng Coding Standard, Testing, Debugging, Code Review và Standards Audit để sẵn sàng làm việc trong môi trường phát triển Embedded chuyên nghiệp.
+
+Chương trình học
+C Advanced trong Embedded
+
+01
+Coding Standards, Memory Foundation
+2 bài
+High-Reliability Coding Standards (MISRA C & BARR-C)
+Deep Dive into Memory Layout & Failure Analysis
+
+02
+Advanced Data Structures & Memory Optimization (Practical)
+2 bài
+Advanced Structures, Unions, and Hardware Mapping
+Object-Oriented C, Memory Optimization & Code Portability
+
+03
+Advanced Pointers & Embedded Design Patterns (Practical)
+2 bài
+Arrays of Pointers & Function Pointers
+Function Pointers in Finite State Machines (FSM)
+
+04
+Standard I/O, Variadic Functions & Secure Standard I/O (CLP Block 2 + Practical)
+2 bài
+Variadic Functions, Macros & Building a Logging Module
+I/O Safety & Security Hacking
+
+
+05
+Low-Level Hardware Control & File Systems (CLP Block 3 + Practical)
+2 bài
+Low-Level Hardware Interfacing
+Threading Models & History
+
+06
+Process and Thread Management (CLP Block 5)
+2 bài
+Threading Models & History
+Modern C11 Threading & Synchronization
+
+07
+Build Systems, Unit Testing & String/Memory Handling Algorithms (CLP Block 4)
+2 bài
+Build Systems (CMake) & Test-Driven Development (TDD)
+String Memory Architecture, Advanced Manipulation & Standard Algorithms
+
+08
+Robust Network Sockets & Numerical Processing (CLP Block 6 & 7)
+2 bài
+Industrial Network Socket Programming
+Numerical Computations, Precision & Network Serialization
+
+
+09
+Advanced Debugging & Profiling (Practical)
+2 bài
+Defensive Programming & Static Analysis
+Advanced Error Handling Tools & Profiling
+
+10
+Industrial Mock Project (Synthesis & CLP Prep)
+2 bài
+Quan trọng
+Mock Project Implementation
+Project Review & Standards Audit
