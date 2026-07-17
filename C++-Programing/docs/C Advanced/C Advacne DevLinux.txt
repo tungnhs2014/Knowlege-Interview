@@ -1,0 +1,149 @@
+
+✅ Lộ trình 20 ngày làm chủ C Advanced trong Embedded. Mn thấy lộ trình phù hợp thì ib nhé. Khóa học được tạo bởi DEVLINUX
+✅ Kiến thức cần có, chưa có được pre-Trainning
+Kiến thức C basics (variables, loops, functions, pointers)
+Biết compile C code với gcc/make cơ bản
+Linux command line (cd, ls, vim/nano)
+
+Week 1: Coding Standards, Memory Foundation (Industry + CLP Block 1)
+Day 1: High-Reliability Coding Standards (MISRA C & BARR-C).
+Recognize historical standards of C (e.g., ANSI C89, ISO C90, C99, C11) and their significance
+Introduction to writing safe C code on day one.
+Enforcing MISRA C:2012 and BARR-C:2018 guidelines (ISO C99 standard)
+Replacing native types with portable fixed-width integers (e.g., <stdint.h>, uint16_t, int32_t) for hardware-independent development.
+Identifying and avoiding undefined and unspecified behaviors and configuring the compiler (-Wall, -Werror) options as the first line of defense
+Deep dive into variable scope, visibility, and lifetimes using static, extern, and not to use "register" keyword
+Build Automation Basics (make): Introducing the concept of a Makefile to automate compilation, linking, and documentation generation, allowing them to use make for all subsequent labs
+Introduction to industrial documentation generation tools: Doxygen for self-documenting code and generating API references (Formatting comments using Doxygen tags (e.g., @brief, @param) to automatically generate project documentation)
+
+Day 2: Deep Dive into Memory Layout & Failure Analysis
+Understanding the C memory layout (text, data, BSS, heap, stack) conceptually.
+Analyzing stack frames and pointers, and handling critical memory errors like stack overflows, out-of-memory, and memory leaks.
+Introduce "size" and "nm (or objdump)": Use the size utility to print the exact byte sizes of the text, data, and bss segments inside a compiled executable. Use nm to dump the symbol table and see exactly which memory segment each variable is assigned to.
+gdb (GNU Debugger) Stack Commands: use backtrace (or where), frame, and info locals to navigate stack frames and inspect local variables when a crash occurs
+Evaluating the impact of different optimization levels (-O1, -O2, -O3, -Os) on code size and performance
+Practical-labs: write a "Hello World" program and run the size command on the executable to record the baseline text, data, and BSS sizes. The Stack Frame Trace Lab & Diagnosing "Stack Overflow" vs. "Bad Pointer"
+
+Week 2: Advanced Data Structures & Memory Optimization (Practical)
+Day 3: Advanced Structures, Unions, and Hardware Mapping
+Advanced user-defined data types (Safe use of bit-fields for hardware registers and the portability risks involved)
+Nested structures and pointers to unions (Understanding compiler padding and byte alignment when communicating with peripherals or networks)
+De-referencing double pointers: Mastering pointer-to-pointer variables (e.g., const char **pp) to efficiently access and traverse arrays of string pointers in memory
+
+Day 4: Object-Oriented C, Memory Optimization & Code Portability.
+Applying object-oriented paradigms in C without C++ overhead (Using structs to encapsulate data and behaviors (classes and objects in C))
+Techniques for calculating and optimizing memory usage in resource-constrained embedded environments
+Code portability across different platforms and architectures
+Practical Lab: Creating structures of function pointers (e.g., DataInit, DataWrite, DataRead) and associating structure members with different function calls to decouple hardware interfaces and ensure code portability
+
+Week 3: Advanced Pointers & Embedded Design Patterns (Practical)
+Day 5: Arrays of Pointers & Function Pointers.
+The foundation of memory and pointers
+Mastering complex declarations (the "Right-Left Rule")
+Working with double pointers, arrays of pointers, and pointer-to-pointer buffering
+Understanding arrays of pointers and arrays of structure pointers
+Creating arrays of function pointers and explicitly placing them in specific memory locations, such as program memory (flash) or RAM
+
+Day 6: Function Pointers in Finite State Machines (FSM).
+Applying structures of function pointers to build modular embedded systems
+Implementing essential embedded design patterns: Callbacks, Command Dispatchers, and Finite State Machines (State Machines)
+Practical Lab: Designing scalable FSMs using the Lab Manual methodology.
+Defining an enum for state machine selection (SYSTEM_STATE).
+Writing individual state functions that accept input bits and a pointer to the state variable (SYSTEM_STATE *State) so the function can independently increment or alter the system state.
+Implementing a single RunStateMachine() control function that invokes the correct array index to trigger state transitions.
+
+Week 4: Standard I/O, Variadic Functions & Secure Standard I/O (CLP Block 2 + Practical)
+Day 7: Variadic Functions, Macros & Building a Logging Module.
+Managing variable-length arguments (stdarg.h) and formatted I/O applications
+String I/O manipulation and optimization techniques like buffering
+How calling conventions and parameter passing impact variadic functions.
+Using stdarg.h macros (va_start(), va_end())
+Implementing standard variadic I/O functions like vprintf() and vsprintf().
+Practical Lab - Industrial Logger: Trainees will build a custom, thread-safe logging module. They will create macros like LOG_ERROR(fmt, ...) that automatically inject FILE and LINE into the log, use vsnprintf() to safely format the string, and route the final output to a simulated UART/serial buffer.
+Day 8: I/O Safety & Security Hacking.
+Understanding the security implications of C's low-level memory access.
+Safe handling of network/serial data to prevent buffer overflows.
+Practical Lab: "Hacking" a C program that uses insecure I/O to demonstrate real-world vulnerabilities and how Day 1 coding standards prevent them.
+Bounded vs. Unbounded I/O: Analyzing the 1988 Internet Worm and why functions like gets(), strcpy(), and sprintf() are banned in mission-critical environments. Transitioning to secure alternatives like fgets(), strlcpy(), and snprintf(), making sure to always account for the NULL terminator.
+Practical Lab - The Format String Attack: Trainees will be given a vulnerable C program that uses printf(buffer) on unvalidated input. They will act as attackers, injecting %x to read sensitive stack memory and %n to maliciously overwrite a target variable's value in memory. Finally, they will rewrite the code to patch the vulnerability.
+
+Week 5: Low-Level Hardware Control & File Systems (CLP Block 3 + Practical)
+Day 9: Low-Level Hardware Interfacing.
+Deep dive into bitwise operators to manipulate hardware registers safely ((&, |, ~, ^, <<, >>) )
+Applying the volatile and const keywords strictly for memory-mapped I/O and protecting memory-mapped peripheral registers from compiler optimizations
+
+Day 10: Fundamentals of Low-Level I/O & System Calls.
+Performing low-level file operations using system calls like open(), read(), and close()
+File descriptor manipulation using control calls like fcntl() and ioctl()
+
+Week 6: Process and Thread Management (CLP Block 5)
+Day 11: Threading Models & History.
+The history and role of processes and threads in C programming.
+Distinguishing between Unix (POSIX) and Windows thread/process models
+Understanding context switching and task scheduling.
+
+Day 12: Modern C11 Threading & Synchronization.
+Applying the modern C11 threading model in multi-threaded applications
+Evaluating thread safety, recognizing race conditions, and understanding how environmental conditions impact execution
+Using Semaphores and Mutexes to serialize access to shared resources
+Implementing the Critical Region Pattern by disabling task switching or interrupts to prevent race conditions and deadlocks
+
+Week 7: Build Systems, Unit Testing & String/Memory Handling Algorithms (CLP Block 4)
+Day 13: Build Systems (CMake) & Test-Driven Development (TDD).
+Build Automation: Introduction to industry-standard build systems for C, specifically make and cmake, to automate the compilation and linking process
+Test-Driven Development (TDD): Understanding the TDD paradigm for embedded firmware, writing tests before or alongside the implementation to ensure defect-free code
+Unit Testing Frameworks & Mocking: Setting up a C-based unit testing framework (e.g., Unity). Writing test cases, and using mocking frameworks (like CMock or FFF) for hardware abstraction, and integrating the test execution into the CMake build process.
+Continuous Integration (CI): Introduction to setting up automated CI pipelines (e.g., GitHub Actions) to run CMake and unit tests on every commit.
+Practical Lab: Creating a CMakeLists.txt file from scratch, compiling a modular C program, and writing a unit test with mocks that verifies a data processing function.
+
+Day 14: String Memory Architecture, Advanced Manipulation & Standard Algorithms .
+String Literals vs. Character Arrays & The Literal Pool:
+Understanding the critical difference between char header[] = "text"; (stack-allocated, modifiable) and char *header = "text"; (pointer to a read-only string literal)
+String Interning: Exploring how modern compilers store identical string literals in the read-only data region (.rodata) to save memory, and why attempting to modify them causes undefined behavior or runtime crashes
+Memory Operations vs. String Operations:
+When to use memcpy() and memset() instead of string functions.
+The Overlapping Memory Pitfall: Understanding why strcpy() and memcpy() fail or produce undefined behavior when source and destination memory regions overlap, and learning to use memmove() as the safe alternative for overlapping data
+Memory Optimization with Ragged Arrays:
+Evaluating how to store multiple strings in memory. Comparing a standard two-dimensional array (char strings) against a "ragged array" (an array of character pointers like char *strings) to dramatically reduce wasted memory when strings vary in length.
+Safe String Passing and Returning:
+Best practices for passing strings to functions (e.g., using const char * to prevent accidental modification).
+Avoiding the fatal mistake of returning a pointer to a local, stack-allocated string from a function, which leads to dangling pointers and stack corruption.
+Returning dynamically allocated strings instead
+Standard Algorithms (Brief Overview for CLP): A quick review of the standard library sorting and searching functions (qsort() and bsearch()) just to satisfy the CLP requirement, noting their typeless nature (void *) and how to cast function pointers for callbacks
+Internationalization (I18N): Handling wide characters and understanding Unicode support in C for the CLP exam.
+
+Week 8: Robust Network Sockets & Numerical Processing (CLP Block 6 & 7)
+Day 15: Industrial Network Socket Programming.
+Basic principles of network sockets and data protocols
+Implementing client-server communication using socket APIs
+Modern Socket APIs: Building protocol-agnostic applications (IPv4/IPv6) using getaddrinfo() instead of obsolete lookup functions
+Non-Blocking I/O & Multiplexing: Using select() to manage multiple simultaneous socket connections and implementing timeouts to prevent the system from hanging
+TCP Stream Realities & Flow Control: Understanding that TCP is a stream protocol (handling fragmented recv() data) and avoiding deadlocks by correctly ordering send() and recv()
+Socket Edge Cases & Server Survival: Preventing "address already in use" errors with SO_REUSEADDR, and preventing server crashes from disconnected peers by handling SIGPIPE
+Real-Time TCP Performance: Understanding when to use TCP_NODELAY to bypass the Nagle Algorithm for low-latency IoT sensor transmission
+
+Day 16: Numerical Computations, Precision & Network Serialization
+Understanding IEEE-754 standards, identifying NaN, ±∞, and signed zero representations
+Evaluating floating-point behavior and common precision issues, and applying multi-precision arithmetic via external libraries
+Network Serialization (Practical Lab): Bridging the two days together. How to safely package, serialize, and transmit floating-point sensor data across a network payload. Addressing endianness (byte-swapping) when transmitting multi-byte numerical representations over the wire
+Network Debugging Tooling: Using netstat to view local socket states, and using tshark/Wireshark to intercept and verify the binary byte-order of the floating-point numbers transmitted by their code
+
+Week 9: Advanced Debugging & Profiling (Practical)
+Day 17: Defensive Programming & Static Analysis.
+Designing with proactive run-time defenses (Design-by-Contract).
+Using assert() to detect logic errors and bounds violations early.
+Configuring Static Analysis tools (like clang-tidy and cppcheck) to catch defects before compilation and enforce MISRA guidelines.
+
+Day 18: Advanced Error Handling Tools & Profiling.
+Utilizing advanced industry debugging utilities: gdb (GNU Debugger) for run-time logic errors, strace for system call tracking, and objdump for binary/assembly analysis.
+Modern Memory & Concurrency Analysis: Integrating compiler sanitizers (AddressSanitizer, UndefinedBehaviorSanitizer, ThreadSanitizer) and using valgrind for legacy environments.
+Performance Profiling: Using gprof or Linux perf to identify CPU bottlenecks and optimize the critical path.
+
+Week 10: Industrial Mock Project (Synthesis & CLP Prep)
+Day 19: Mock Project Implementation.
+Building a comprehensive Embedded IoT Monitoring System.
+Trainees will integrate the Day 6 FSM model to control the system, utilize the Day 4 portability structures for hardware abstraction, and implement thread-safe sensor reading.
+
+Day 20: Project Review & Standards Audit.
+System debugging, running code through valgrind, and executing a peer code review to ensure the project strictly adheres to the MISRA/BARR-C standards learned on Day 1.
+CLP preparation.
