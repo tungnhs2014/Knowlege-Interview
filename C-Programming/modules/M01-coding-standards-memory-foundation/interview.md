@@ -9,7 +9,7 @@
 - ISO C defines the portable language semantics and standard-library contract; it does not define a project coding policy.
 - MISRA C:2012 constrains risky C usage for high-integrity work and needs a defined scope and compliance process.
 - BARR-C:2018 provides practical Embedded C style and defect-prevention conventions that make code easier to review and maintain.
-- Compiler warnings report suspicious constructs for one compiler, version, target, and option set; `-Wall` is useful but is not every warning.
+- Compiler warnings report suspicious constructs for ongit e compiler, version, target, and option set; `-Wall` is useful but is not every warning.
 - A warning-free build is valuable evidence, but it does not prove functional correctness, target correctness, or MISRA compliance.
 
 ### Strong Interview Answer
