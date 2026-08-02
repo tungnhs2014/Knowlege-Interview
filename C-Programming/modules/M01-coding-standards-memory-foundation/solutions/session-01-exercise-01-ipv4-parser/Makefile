@@ -2,7 +2,7 @@ CC ?= cc
 CPPFLAGS ?=
 CFLAGS ?=
 
-BASE_CFLAGS := -std=c99 -Wall -Wextra -pedantic -Werror
+BASE_CFLAGS := -std=c99 -Wall -Wextra -Wpedantic -Werror
 TARGET := ipv4_parser
 
 all: $(TARGET)

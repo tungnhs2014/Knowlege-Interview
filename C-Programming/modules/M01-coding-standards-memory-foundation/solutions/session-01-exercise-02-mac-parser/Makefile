@@ -1,11 +1,14 @@
-CC ?= gcc
-CFLAGS := -std=c99 -Wall -Wextra -pedantic -Werror
+CC ?= cc
+CPPFLAGS ?=
+CFLAGS ?=
+
+BASE_CFLAGS := -std=c99 -Wall -Wextra -Wpedantic -Werror
 TARGET := mac_parser
 
 all: $(TARGET)
 
 $(TARGET): main.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(BASE_CFLAGS) $< -o $@
 
 clean:
 	$(RM) $(TARGET)

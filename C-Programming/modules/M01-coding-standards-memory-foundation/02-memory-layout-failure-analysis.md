@@ -1,32 +1,65 @@
 # M01-L02 — Memory Layout & Failure Analysis
 
-> **Status:** APPROVED.
+> **Status:** `APPROVED`
+>
+> **Gate:** `LESSON_2_AUTHORING`
+>
+> **Language baseline:** ISO C99
 
-## 1. Learning Objectives
+## 1. Purpose, Scope, and the Three-Layer Memory Model
 
-This lesson explains the practical memory model used when reviewing a C program built for an embedded target or Linux host. It prepares you for session-02's **Memory Segment Analyzer** and **Stack Depth Monitor** exercises without supplying their implementations. After completing it, you should be able to:
+Reliable memory reasoning starts by separating three different layers that are often mixed together:
 
-- distinguish C language semantics from a particular toolchain's sections and runtime-memory layout;
-- describe the common roles of `.text`, `.rodata`, `.data`, `.bss`, heap, and stack;
-- explain why initialized data is commonly copied to RAM and BSS is commonly zeroed before `main()` on embedded systems;
-- reason about stack frames, call depth, recursion, and stack-overflow risk without assuming a universal frame layout or stack direction;
-- handle allocation failure, release dynamic memory correctly, and recognize leaks, fragmentation, and bad-pointer failures;
-- use GNU `size`, `nm`, and `objdump` to inspect one build without mistaking their output for a portable language guarantee;
-- use a small GDB workflow to inspect a crash and its call stack;
-- explain the purpose and debugging trade-offs of `-O0`, `-O1`, `-O2`, `-O3`, and `-Os`.
+```text
+ISO C object semantics
+→ object-file / executable representation
+→ physical target placement and runtime behavior
+```
 
-The lesson uses the common Embedded C vocabulary because it is useful for firmware sizing and debugging. The names, placement, and addresses discussed here are implementation observations: they depend on the compiler, linker, run-time library, target, and build options.
+### Layer 1 — ISO C object semantics
 
-## 2. Start with the Right Model: C Semantics versus Build Artifacts
+ISO C defines concepts such as:
 
-ISO C defines object lifetime, initialization requirements, storage duration, and valid program behavior. It does **not** require a physical `.text`, `.data`, or `.bss` placement, a particular heap implementation, a stack direction, or an object-file format. Those are conventions and implementation choices made by a toolchain, linker configuration, operating environment, and target hardware.
+- object type and qualification;
+- scope, linkage, storage duration, and lifetime;
+- initialization requirements;
+- valid pointer use;
+- dynamic-allocation contracts;
+- defined, implementation-defined, unspecified, and undefined behavior.
 
-That distinction prevents two common mistakes. The first is treating a familiar memory map as if every C program must have it. The second is dismissing the map as irrelevant because it is not mandated by the language. The practical view is between those extremes: use the map to understand the binary you are building, then verify it with that build's tools and documentation.
+ISO C does **not** require sections named `.text`, `.rodata`, `.data`, or `.bss`. It does not require a downward-growing stack, an ELF file, a particular heap implementation, or a specific Flash/RAM map. [ISO C99 §§6.2.4, 6.7.8]
 
-For example, these declarations have C-level meanings independent of their eventual placement:
+### Layer 2 — Object-file and executable representation
+
+A compiler, assembler, linker, object format, and build configuration commonly represent code and objects using sections and symbols. GNU/ELF environments often use names such as:
+
+```text
+.text
+.rodata
+.data
+.bss
+```
+
+These names are useful engineering conventions, but they describe one build artifact rather than a universal property of C.
+
+### Layer 3 — Physical placement and runtime behavior
+
+A linker script, loader, startup runtime, operating system, memory map, and target hardware decide where image content is stored and where objects exist while the program runs.
+
+For example:
+
+- code may execute directly from non-volatile memory;
+- code may be copied to RAM before execution;
+- writable initialized objects may have load bytes in Flash and execution storage in RAM;
+- a Linux loader may map executable pages and writable pages into virtual memory;
+- a bootloader or runtime may relocate sections.
+
+The same C declaration can therefore produce different section names and different physical placement under another compiler, linker, target, or optimization level.
 
 ```c
-static const uint32_t k_protocol_magic = 0x4D303131U;
+#include <stdint.h>
+
+static const uint32_t k_protocol_magic = UINT32_C(0x4D303132);
 static uint32_t g_retry_limit = 3U;
 static uint32_t g_error_count;
 
@@ -38,164 +71,600 @@ void process_packet(void)
 }
 ```
 
-The first object is read-only through this declaration, the next two have static storage duration, and `local_status` has automatic storage duration. A typical embedded build may place them in sections conventionally called `.rodata`, `.data`, `.bss`, and stack-backed storage respectively. Another build may merge, discard, rename, relocate, or optimize them. Learn the C meaning first; use inspection tools to learn the physical result.
+At the C-language layer:
 
-## 3. The Conceptual Memory Layout
+- `k_protocol_magic` is a `const`-qualified object with static storage duration;
+- `g_retry_limit` and `g_error_count` have static storage duration;
+- `local_status` has automatic storage duration.
 
-The following table is a useful mental model for a conventional compiled C program. It describes common roles, not a layout promised by ISO C.
+A conventional build may represent them in `.rodata`, `.data`, `.bss`, and call-related storage. That result must be inspected; it must not be assumed from the source alone.
 
-| Common name | Typical contents | Common Embedded intuition | Important limit |
-| --- | --- | --- | --- |
-| `.text` | Executable instructions | Often stored in non-volatile program memory | A section name and physical location are linker and target choices. |
-| `.rodata` | Read-only constants and string literals | Often stored with program image content | `const` does not guarantee this section or physical read-only memory. |
-| `.data` | Nonzero-initialized writable static objects | Initial bytes are commonly stored in the image, then copied to RAM | Not every initialized object must be represented this way. |
-| `.bss` | Zero-initialized or uninitialized writable static objects | RAM is reserved and is commonly zeroed during startup | Explicit `= 0` does not force a particular section. |
-| Heap | Dynamic-allocation arena, if provided | Grows and shrinks as `malloc()` and `free()` are used | It is a runtime service, not an ISO C object-file section. |
-| Stack | Active function-call storage | Supports automatic objects and call state | Direction, layout, and even storage use are implementation-dependent. |
+This lesson owns:
 
-### 3.1 Code and read-only data
+- common executable-section interpretation;
+- startup initialization;
+- Flash/image and RAM reasoning;
+- stack and heap failure analysis;
+- GNU Binutils evidence;
+- basic GDB investigation;
+- optimization-sensitive observations.
 
-The body of a compiled function is commonly emitted as instructions in `.text`. Read-only constants, lookup tables, and string literals are commonly emitted into a read-only section such as `.rodata`. On a microcontroller that executes in place from Flash, both often contribute to program-image size. On a Linux host, the loader and operating system provide a different runtime environment. The source-level lesson remains the same: if an object is defined with a `const`-qualified type, attempting to modify it by casting away `const` has undefined behavior; ISO C does not dictate its physical residence.
+It prepares learners for the Session 02 Memory Segment Analyzer and Stack Depth Monitor exercises without reproducing their complete specifications or solutions.
+
+**Must remember:** first identify the C-language meaning, then inspect the generated artifact, and only then reason about physical target placement.
+
+## 2. Common Embedded Startup Model
+
+Objects with static storage duration must have their required initial values before ordinary application code relies on them. ISO C defines the required initialized state; the selected runtime and target decide how that state is established.
+
+A common bare-metal startup flow is:
+
+```text
+reset
+→ establish processor mode and initial stack state
+→ perform required target initialization
+→ copy initialized writable data to its runtime location
+→ establish zero-initialized storage
+→ initialize runtime services as required
+→ call main()
+```
+
+This is a **common implementation model**, not an ISO C-mandated sequence. Exact ordering and mechanisms depend on:
+
+- processor architecture;
+- startup code;
+- compiler runtime;
+- linker configuration;
+- bootloader;
+- RTOS;
+- operating environment.
+
+Consider:
+
+```c
+#include <stdint.h>
+
+static uint32_t g_sample_period_ms = 100U;
+static uint32_t g_samples_received;
+```
+
+At the C-language layer:
+
+- `g_sample_period_ms` must hold `100U` before normal program execution uses it;
+- `g_samples_received` is zero-initialized.
+
+A conventional embedded runtime may:
+
+1. store the initial bytes for `g_sample_period_ms` in the load image;
+2. copy those bytes to writable RAM;
+3. reserve RAM for `g_samples_received`;
+4. clear that RAM range before `main()`.
+
+This model explains why a source declaration can have a valid initial value before application code assigns it.
+
+### Why startup belongs in failure analysis
+
+A program can fail even when the application source appears correct if:
+
+- the initialized-data copy range is wrong;
+- the zeroing range is wrong;
+- the linker symbols used by startup code are inconsistent;
+- RAM initialization is skipped;
+- a bootloader and application disagree about placement;
+- startup code accesses unavailable memory;
+- execution enters `main()` with an invalid stack or runtime state.
+
+A useful diagnostic question is:
+
+```text
+Did the C source request the correct initial value,
+and did this exact runtime establish it correctly?
+```
+
+Do not immediately blame `.data` or `.bss` as abstract concepts. Inspect:
+
+- startup implementation;
+- linker map;
+- section headers;
+- load and execution addresses;
+- target memory map;
+- the exact binary being executed.
+
+Full startup assembly and linker-script authoring are outside M01.
+
+**Must remember:** C defines the required initialized state; startup code, the linker, and the target establish that state in an implementation-specific way.
+
+## 3. `.text`, `.rodata`, `.data`, and `.bss`
+
+The following names describe common section roles in many GNU/ELF and embedded toolchains. They are useful, but none is mandated by ISO C.
+
+| Common section | Typical contents | Typical image implication | Typical runtime implication | Important limitation |
+| --- | --- | --- | --- | --- |
+| `.text` | Executable instructions | Contributes code bytes to the image | May execute in place or after relocation | Section name and placement are toolchain choices |
+| `.rodata` | Read-only objects and string literals | Contributes constant bytes to the image | May remain in read-only memory or be mapped/relocated | `const` does not guarantee `.rodata` or Flash |
+| `.data` | Writable objects with nonzero initial values | Commonly needs initial-value bytes in the image | Commonly occupies writable RAM | Not every initialized object must use this section |
+| `.bss` | Zero-initialized writable storage | Usually does not require one payload byte per zero | Occupies runtime storage and commonly requires zeroing | Explicit `= 0` does not force `.bss` |
+
+### 3.1 `.text`: generated code, not a function-pointer object
+
+A function body is commonly emitted as machine instructions associated with a code section such as `.text`.
+
+```c
+static uint32_t increment_count(uint32_t value)
+{
+    return value + 1U;
+}
+```
+
+The function's generated instructions may appear as a symbol classified by `nm` or as bytes in a section shown by `objdump`.
+
+Do not confuse:
+
+- the generated code for a function;
+- a function designator in C;
+- a function pointer object stored somewhere in memory.
+
+A stored function-pointer object is data. It is not itself the machine instructions of the referenced function. Use symbol and section tools such as `nm` and `objdump` to inspect generated code rather than claiming that a function-pointer object “is in `.text`.” [M01-CR-006]
+
+### 3.2 `.rodata`: common read-only representation
 
 ```c
 static const char k_build_label[] = "M01 memory lesson";
 ```
 
-This is a good candidate for a read-only section in many toolchains. It may instead be merged with another constant, eliminated if unused, or placed according to a target-specific rule. Do not write code that relies on its address being near a function or another constant.
+Many builds place this object in a read-only section. However:
 
-### 3.2 Writable static data: `.data` and `.bss`
+- `const` is a type-system property;
+- it restricts modification through the declared type;
+- it does not guarantee a section name;
+- it does not guarantee physical Flash placement;
+- it does not guarantee that no runtime copy exists;
+- an unused object may be removed.
 
-Objects with static storage duration exist for the program's whole execution. C requires them to have their specified initial values when the program begins its normal C execution; omitted initialization produces zero initialization at the language level. How a bare-metal product achieves that state is a startup and linker concern.
+Attempting to modify an object defined with a `const`-qualified type by casting away `const` produces undefined behavior. That language rule is separate from physical placement. [ISO C99 §§6.5.16.1, 6.7.3]
+
+### 3.3 `.data`: initialized writable objects
 
 ```c
 static uint32_t g_sample_period_ms = 100U;
+```
+
+A common bare-metal model stores initial bytes in non-volatile image storage and copies them to writable RAM before `main()`.
+
+This commonly creates two resource effects:
+
+```text
+load-image content for the initial value
++
+runtime writable storage
+```
+
+The exact representation depends on the compiler, linker, image format, and startup model.
+
+### 3.4 `.bss`: zero-initialized writable storage
+
+```c
 static uint32_t g_samples_received;
 static uint32_t g_samples_rejected = 0U;
 ```
 
-In a common Embedded startup design, `g_sample_period_ms` belongs to writable RAM at runtime and needs the initial value `100U`. The firmware image therefore contains initial-value bytes somewhere in non-volatile storage, and early startup copies them into the RAM location. This is the usual intuition behind `.data`.
+Both objects are zero-initialized at the C-language level. A conventional toolchain may represent both in BSS-like storage.
 
-`g_samples_received` has no explicit initializer and is zero-initialized by the C language. `g_samples_rejected = 0U` has an explicit zero initializer but is commonly treated the same way by embedded toolchains: both may be placed in BSS-like storage. BSS generally consumes RAM and requires startup zeroing, but does not need equivalent payload bytes for each zero in the firmware image. The image still needs metadata or layout information so startup code knows what RAM range to clear.
+A precise explanation is:
 
-This distinction matters when reading a size report. Changing a large static buffer from a nonzero initializer to an all-zero initializer can reduce image payload while leaving the RAM requirement essentially unchanged. It is not a language guarantee and must be checked in the built artifact.
+- the objects still require runtime storage;
+- startup commonly clears the corresponding range;
+- the image usually does not store one explicit payload byte for every required zero;
+- the image and linker still need enough metadata, addresses, or symbols to describe what must be reserved and cleared.
 
-The common Embedded Flash/image versus runtime-RAM view makes the central distinction visible:
+Therefore, saying “BSS costs zero Flash” is too absolute. A better statement is:
 
-| Common name or concept | Typical firmware-image / non-volatile content | Typical runtime RAM use |
-| --- | --- | --- |
-| `.text` | Executable instructions | Usually none when executing in place; some systems relocate code. |
-| `.rodata` | Constant and string bytes | Usually none unless the target relocates or copies them. |
-| `.data` | Initial-value bytes | Writable objects occupy RAM after startup copies their initial values. |
-| `.bss` | No equivalent payload bytes for each initial zero | Writable zero-initialized storage occupies RAM and is commonly cleared at startup. |
-| Heap | No bytes for individual future allocations | A runtime allocation arena exists if the implementation provides one. |
-| Stack | No bytes for individual future calls | Runtime call storage is reserved or established for active invocations. |
+> BSS-like storage commonly avoids carrying an equivalent zero-filled payload in the load image while still consuming runtime storage and requiring image/layout metadata.
 
-Thus, `.data` commonly consumes both firmware-image bytes for initial values **and** runtime RAM, while `.bss` consumes runtime RAM but normally does not require equivalent zero payload bytes in the image. This is a common embedded-toolchain model, not a physical-placement promise from ISO C.
+[M01-CR-009]
 
-### 3.3 Heap and stack are runtime concepts
+### 3.5 Image size and RAM use are different questions
 
-The heap is the storage arena exposed by a dynamic-allocation implementation such as `malloc()` and `free()`. The stack is the call-oriented storage used by many implementations for function invocations and automatic objects. Both names are useful in embedded and Linux engineering, but neither is a section placement mandated by ISO C.
-
-On a small microcontroller, a linker configuration commonly reserves RAM for static data, heap, and stack. On a Linux process, the operating system establishes the runtime environment. In either case, do not infer a permanent relationship between their addresses from a single run. Address values and apparent distances can change with the target, link mode, loader, optimization, configuration, and program input.
-
-## 4. Flash/Image Content, RAM, and Startup Initialization
-
-Before `main()` can safely use normal C objects, an embedded system must establish the C runtime environment. The exact reset sequence is target and toolchain specific. CMSIS startup templates, for example, hand control from a reset handler through system initialization to the C/C++ runtime, while other toolchains or operating systems use different entry code.
-
-The common bare-metal sequence is conceptually:
-
-```text
-reset
-→ establish an initial stack
-→ perform target and clock setup as required
-→ copy initialized writable data from image storage to RAM
-→ zero BSS-like RAM ranges
-→ enter the C runtime / call main()
-```
-
-The sequence explains a recurring embedded question: *why can a global variable have an initial value before my code assigns it?* The source declaration expresses the required value; startup and runtime code establish it before ordinary application execution. If startup copy or zero ranges are wrong, static objects can have incorrect values even though the C source is correct.
-
-Consider the two declarations below:
+Consider a large static buffer:
 
 ```c
-static uint8_t g_mode = 2U;
-static uint8_t g_fault_flags;
+#include <stdint.h>
+
+static uint8_t g_buffer[4096U];
 ```
 
-`g_mode` needs `2U` in writable RAM, so its initial byte is commonly represented in the program image and copied during startup. `g_fault_flags` must begin as zero, so a common startup implementation reserves RAM and clears it. This is why `.data` is often associated with an initial-value image and `.bss` with zeroing work rather than duplicated zero payload. The terms describe a conventional implementation, not a physical requirement of the C standard.
+A typical build may reserve approximately 4096 bytes of runtime writable storage while avoiding 4096 explicit zero bytes in the image payload.
 
-Startup behavior is an important diagnostic boundary. If a bare-metal program fails before `main()`, or static state begins unexpectedly nonzero, inspect the board support package, compiler runtime, startup file, linker configuration, and target reset behavior. This lesson does not teach linker-script syntax; use the relevant toolchain and device documentation when a product needs changes there.
-
-## 5. Stack Frames, Call Depth, and Recursion
-
-Every active function invocation needs execution state. A debugger commonly presents that state as a **stack frame** containing the current location, a route back to the caller, arguments, and accessible local variables. The exact physical frame layout is not a C-language contract. A compiler can keep a local in a register, omit a frame, reuse storage, inline a call, or transform a call when optimization permits.
-
-For a newcomer, the safe conceptual model is: each ordinary call adds an active invocation; returning removes it. If `main()` calls `configure()`, which calls `parse_record()`, then a failure in `parse_record()` has a call chain that GDB can usually display as three frames. A deep call chain consumes more call-related storage and increases the risk of exhausting a fixed embedded stack.
-
-```text
-Active calls while parse_record() runs:
-
-main()
-  └─ configure()
-       └─ parse_record()     ← current innermost invocation
-
-When parse_record() returns:
-
-main()
-  └─ configure()             ← resumes with parse_record() no longer active
-```
-
-This is a logical call-chain diagram, not a physical frame layout or an assertion about numerical stack-growth direction.
-
-Recursion is a direct form of unbounded call depth unless the input or guard provides a strict bound. Each recursive invocation has its own automatic objects. This small fragment illustrates the observation without implementing the session-02 monitor:
+Changing it to:
 
 ```c
-static void observe_depth(uint32_t remaining_depth)
+static uint8_t g_buffer[4096U] = {1U};
+```
+
+can increase load-image content because the object now requires a nonzero initial representation, while its runtime capacity remains approximately the same.
+
+This is a useful expectation to test with the exact toolchain. It is not a guarantee that every linker represents the object identically.
+
+**Must remember:** section names help explain one build; they do not replace the distinction between C semantics, image representation, and runtime storage.
+
+## 4. Flash, Load Memory, Execution Memory, and RAM
+
+The phrase “stored in Flash” often hides two separate questions:
+
+1. Where are the initial bytes stored in the image?
+2. Where does the program execute or access the object at runtime?
+
+Embedded linker terminology often distinguishes:
+
+- **load memory address (LMA):** where content exists in the load image;
+- **virtual/execution memory address (VMA):** where the section is accessed while the program runs.
+
+Terminology varies by toolchain, but the distinction is fundamental.
+
+### Typical bare-metal possibilities
+
+```text
+Case A: Execute in place
+Flash image: .text, .rodata
+RAM:        .data, .bss, heap, stack
+
+Case B: Relocated code
+Flash image: .text load bytes
+RAM:         copied .text execution bytes
+
+Case C: Initialized writable data
+Flash image: initial .data bytes
+RAM:         writable .data execution storage
+```
+
+A section name alone does not reveal the complete load/execution relationship.
+
+### Hosted Linux boundary
+
+A Linux executable is normally loaded by the operating system and dynamic loader. File-backed executable or read-only pages, writable mappings, zero-filled mappings, heap growth, stack mappings, shared libraries, relocation, and address-space randomization are operating-environment behaviors.
+
+The useful M01 distinction is:
+
+```text
+bare-metal firmware image model
+≠
+hosted Linux process-loading model
+```
+
+Both can use ELF, but physical Flash/RAM intuition from a microcontroller must not be copied directly into a Linux process explanation.
+
+### Questions to ask
+
+For a real target, determine:
+
+- What is the object format?
+- What linker script or linker defaults are used?
+- What are the load and execution addresses?
+- Is code executed in place?
+- Which regions are copied or cleared?
+- Does a loader perform relocation?
+- Are addresses virtual, physical, or both?
+- Which document defines the target memory map?
+
+Full linker-script syntax, virtual-memory theory, MMU/MPU configuration, and loader internals are outside M01.
+
+**Must remember:** “in the image,” “in Flash,” “mapped read-only,” “executed from,” and “stored in RAM” are different claims that require different evidence.
+
+## 5. Guided Hello World Binary-Size Baseline
+
+The DevLinux roadmap includes a small binary-size observation before the Session 02 exercises. This is a guided lesson activity, not a fifth canonical exercise and not an additional solution artifact.
+
+### 5.1 Minimal source
+
+```c
+#include <stdio.h>
+
+int main(void)
+{
+    puts("Hello, memory model.");
+    return 0;
+}
+```
+
+### 5.2 Record the build context
+
+Example host command:
+
+```text
+gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O0 hello.c -o hello
+```
+
+Record at least:
+
+- compiler name and version;
+- target or host architecture;
+- language mode;
+- optimization level;
+- linker mode if relevant;
+- exact output file.
+
+### 5.3 Run GNU `size`
+
+```text
+size hello
+```
+
+In GNU `size`'s default Berkeley-style output, common columns are:
+
+```text
+text    data    bss    dec    hex    filename
+```
+
+These are summary categories. They must not be interpreted as exact universal section names.
+
+In particular:
+
+- the `text` summary can include read-only data;
+- the three columns do not fully explain every ELF section;
+- runtime heap and stack use are not reported as future dynamic consumption;
+- shared-library and loader behavior can complicate hosted interpretation;
+- target-specific image formats may use different accounting.
+
+### 5.4 The correct conclusion
+
+The activity demonstrates:
+
+```text
+source
+→ exact build command
+→ exact binary
+→ tool summary
+→ bounded interpretation
+```
+
+A good observation is:
+
+> Under the recorded compiler, target, options, and binary, GNU `size` reports these summary values.
+
+A bad conclusion is:
+
+> Every C program with this source always requires exactly these text, data, and BSS sizes.
+
+Use `objdump`, `readelf`, or a linker map when the summary is not enough.
+
+**Must remember:** tool output becomes evidence only when the exact artifact and build context are recorded.
+
+## 6. Stack Mental Model
+
+ISO C defines automatic storage duration and function-call semantics, but it does not require a conventional hardware stack or a fixed frame layout.
+
+A useful conceptual model is:
+
+```text
+each active ordinary call
+→ has execution state
+→ may require call-related storage
+→ disappears when the invocation returns
+```
+
+Example call chain:
+
+```text
+main()
+  └─ initialize_service()
+       └─ parse_configuration()
+            └─ validate_field()    ← current invocation
+```
+
+When `validate_field()` returns, its invocation is no longer active and execution resumes in `parse_configuration()`.
+
+A debugger often presents each active invocation as a **frame** containing enough information to inspect:
+
+- the current source location;
+- arguments;
+- local variables;
+- the caller relationship;
+- saved execution state.
+
+The physical representation is controlled by the ABI and compiler.
+
+### What cannot be assumed
+
+Do not assume:
+
+- the stack grows toward lower addresses;
+- the stack grows toward higher addresses;
+- every call consumes the same number of bytes;
+- every local is stored in memory;
+- every function has a visible frame;
+- frame pointers are always present;
+- inlined functions produce ordinary frames;
+- tail-call transformations preserve the apparent call chain.
+
+Optimization, ABI rules, interrupt handling, exception mechanisms, security features, and target architecture can change all of these observations.
+
+### Automatic objects and address observations
+
+```c
+#include <stdint.h>
+
+static void observe_call(uint32_t depth)
 {
     uint8_t marker = 0U;
     const void *p_marker = &marker;
 
     (void)p_marker;
+    (void)depth;
+}
+```
 
-    if (remaining_depth != 0U)
+The address of `marker` can be printed in a controlled implementation experiment, but one observed address does not prove:
+
+- stack direction;
+- exact frame size;
+- total stack usage;
+- safe remaining capacity.
+
+A compiler can also optimize the object away unless the observation forces an addressable representation.
+
+`uintptr_t` is optional. It exists only when the implementation provides an unsigned integer type capable of representing converted `void *` values. Even where available, converting unrelated object addresses to integers and subtracting them produces an implementation-scoped numeric observation, not portable C pointer-distance semantics. [ISO C99 §7.18.1.4; M01-CR-015]
+
+**Must remember:** use the stack as a logical call-storage model first; treat addresses and frame sizes as evidence from one ABI and one build.
+
+## 7. Stack Overflow and Recursion-Lab Boundaries
+
+A **stack overflow** occurs when the call-related storage required by execution exceeds the stack capacity or configured limit available to the thread, task, or program.
+
+Common causes include:
+
+- unintended infinite recursion;
+- excessive bounded recursion;
+- deep call chains;
+- large automatic arrays;
+- nested library calls with significant stack use;
+- interrupt nesting or exception paths;
+- underestimated task-stack configuration.
+
+Possible symptoms include:
+
+- memory corruption;
+- a protection fault;
+- corrupted return state;
+- an incomplete backtrace;
+- failure far from the deepest call;
+- inconsistent behavior after optimization or small code changes.
+
+### 7.1 Recursion requires a bound but a bound is not a proof
+
+```c
+#include <stdint.h>
+
+static void observe_depth(uint32_t remaining_depth)
+{
+    uint8_t marker = 0U;
+
+    (void)marker;
+
+    if (remaining_depth > 0U)
     {
         observe_depth(remaining_depth - 1U);
     }
 }
 ```
 
-The address of `marker` may appear to move by a regular amount on one debug build. Do not turn that observation into a stack-size calculation or a portability claim. The stack may grow in either numerical direction, frame size may vary by call path and optimization, and the compiler can change whether the marker has a stable memory address at all. Session-02 uses controlled measurement to develop this intuition; a production stack budget needs target-specific worst-case analysis and margins.
+The explicit depth argument bounds the number of recursive calls for this input. It does **not** prove:
 
-### 5.1 Stack overflow is not the same as a buffer overflow
+- the target has enough stack;
+- every invocation uses a fixed amount;
+- the measured address difference equals stack consumption;
+- the guard matches the real overflow boundary;
+- recursion is MISRA-compliant.
 
-A **stack overflow** occurs when call-related storage exceeds the stack region or limit available to the program or task. Common causes include accidental infinite recursion, excessive recursion depth, large automatic arrays, and unexpectedly deep call paths. It can corrupt adjacent memory or cause a fault, and its symptom may appear far from the actual call that exhausted the stack.
+### 7.2 MISRA Rule 17.2 boundary
 
-A **buffer overflow** is an out-of-bounds read or write on one object, such as an array. It can occur on the stack, heap, or static storage. If a stack-local array overflows, it may corrupt the current frame and can resemble a stack overflow, but the root cause is an indexing error rather than total stack exhaustion.
+MISRA C:2012 Rule 17.2 prohibits recursive function calls. A controlled educational recursion lab therefore conflicts with the rule. A runtime guard does not make recursion compliant.
+
+The correct interpretation is:
+
+- the lab intentionally demonstrates call depth and risk;
+- the guard reduces experimental risk;
+- the guard is not a proof of stack safety;
+- a MISRA compliance claim would require the project's authorized treatment of the violation;
+- a required-rule deviation is a formal project decision, not an automatic result of adding a depth check.
+
+[MISRA C:2012 Rule 17.2; M01-CR-011]
+
+### 7.3 Production stack analysis
+
+A production stack budget can require:
+
+- compiler-generated stack-usage reports;
+- call-graph analysis;
+- RTOS high-water-mark evidence;
+- interrupt nesting analysis;
+- target ABI documentation;
+- worst-case execution paths;
+- margin policy;
+- controlled measurement on the intended build.
+
+These methods are outside the introductory lab.
+
+### 7.4 Do not find the limit by crashing
+
+Deliberately recursing until a real overflow is destructive and does not produce a reliable universal limit. Corruption may occur before a visible fault, and the failure boundary can change with a small build change.
+
+Use a bounded experiment with conservative limits and document that it is only an observation.
+
+**Must remember:** a recursion guard limits one experiment; it does not prove the true stack boundary or make recursion compliant with Rule 17.2.
+
+## 8. Bad Pointer, Buffer Corruption, and Stack Failure
+
+A crash near stack-related code does not automatically mean stack exhaustion. Pointer and buffer defects can corrupt call state and create similar symptoms.
+
+### 8.1 Distinguish the failure classes
+
+| Failure class | Root cause | Typical example |
+| --- | --- | --- |
+| Stack exhaustion | Total call-related storage exceeds the available stack | Excessive recursion or large automatic arrays |
+| Buffer overflow | Access goes outside one object's bounds | Writing element `capacity` of an array |
+| Null-pointer dereference | A null pointer is used as an object address | Dereferencing `NULL` |
+| Dangling pointer | Pointer refers to an object whose lifetime ended | Use after `free()` or returning an automatic object's address |
+| Uninitialized pointer | Pointer value was never established | Dereferencing an indeterminate pointer |
+| Invalid conversion or address | Pointer value does not designate a valid object of the required type | Misused integer-to-pointer conversion |
+
+### 8.2 Buffer overflow example
+
+The following is deliberately invalid:
 
 ```c
-uint8_t samples[4] = {0U, 0U, 0U, 0U};
-samples[4] = 1U; /* Buffer overflow: valid indexes are 0 through 3. */
+#include <stdint.h>
+
+void invalid_write(void)
+{
+    uint8_t samples[4] = {0U, 0U, 0U, 0U};
+
+    samples[4] = 1U; /* Undefined behavior: valid indexes are 0 through 3. */
+}
 ```
 
-The reliable pattern is the one established in M01-L01: carry capacity with a pointer or array, validate the index before access, and establish a maximum recursive depth before recursing. Do not deliberately provoke a real stack overflow to find a limit; it is a destructive and target-dependent experiment.
+A stack-local buffer overflow can damage nearby call-related storage and later produce:
 
-### 5.2 Diagnosing Stack Overflow vs. Bad Pointer
+- a corrupted local;
+- an invalid return;
+- a broken backtrace;
+- a crash in another function.
 
-The two failures can both produce a crash, corrupted local state, or an incomplete backtrace. Distinguish them from evidence rather than from one symptom alone.
+The root cause remains an out-of-bounds write, not necessarily total stack exhaustion.
 
-| Evidence | More consistent with stack overflow | More consistent with a bad pointer |
+### 8.3 Evidence-oriented comparison
+
+| Evidence | Stack exhaustion hypothesis | Bad-pointer/buffer hypothesis |
 | --- | --- | --- |
-| Call history | Repeated recursion or unexpectedly deep nested calls | Failure is not tied to increasing call depth. |
-| Automatic storage | Large local arrays or reduced available stack make the failure more likely | Changing local storage has no consistent effect. |
-| Stop location | Failure occurs while entering or returning through a deep path | GDB stops at a dereference or access using a null, stale, or out-of-range pointer. |
-| Backtrace | Many repeated frames, or damaged/truncated frames after deep execution | A coherent call chain reaches the invalid pointer use. |
-| Controlled correction | A lower approved depth or smaller automatic storage removes the failure | Correcting pointer lifetime, ownership, null validation, or bounds removes the failure. |
+| Call depth | Failure correlates with increasing depth | Failure can occur at shallow depth |
+| Automatic storage | Larger locals or smaller task stack worsen the issue | No consistent relation to total call storage |
+| Stop location | May fail during call/return or after corruption | Often stops at a specific invalid access |
+| Backtrace | Repeated/deep frames or damaged unwind state | May show a normal chain to the invalid access |
+| Controlled correction | Lower depth or reduced automatic storage changes result | Correcting lifetime, bounds, ownership, or null validation removes failure |
 
-These are diagnostic clues, not universal proofs: corruption can damage a backtrace, and a buffer overwrite can create symptoms of either category. Start with a recorded build and input, capture `backtrace`, select the stopped frame, and inspect depth, automatic objects, and the pointer being dereferenced. Then make one controlled change at a time: reduce the configured call depth or automatic storage within the test guard, or correct the pointer's lifetime, ownership, null check, or bound. Compare the outcome with the original evidence before drawing a conclusion.
+These are clues, not proofs. A buffer overflow can destroy the evidence used to diagnose it.
 
-## 6. Dynamic Allocation: `malloc()`, `free()`, and Failure Modes
+### 8.4 Correct investigation order
 
-Dynamic allocation obtains storage while the program runs. It is useful when the required lifetime or capacity cannot be fixed at build time, but it creates a resource-management obligation: every successful allocation must have an owner, a defined release point, and a failure path. Some embedded projects prohibit or tightly restrict dynamic allocation because predictability is more important than flexibility; others use it under a documented policy. Follow the project's policy rather than assuming `malloc()` is always available or always appropriate.
+```text
+reproduce exact failure
+→ record build and input
+→ capture stopped location and backtrace
+→ inspect pointer, index, capacity, and lifetime
+→ inspect call depth and large automatic objects
+→ form competing hypotheses
+→ make one controlled correction
+→ compare against the original evidence
+```
+
+Do not change optimization, input, recursion depth, and pointer logic simultaneously. That destroys causal evidence.
+
+**Must remember:** similar symptoms can have different root causes; diagnose from pointer validity, bounds, lifetime, call depth, and controlled evidence together.
+
+## 9. Heap, Dynamic Allocation, Ownership, and Failure Modes
+
+Dynamic allocation obtains storage during execution through services such as `malloc()` and releases it through `free()`. It can support variable capacity and runtime-selected lifetime, but it introduces failure, ownership, timing, fragmentation, and policy concerns.
+
+### 9.1 ISO C allocation contract
 
 ```c
 #include <stdbool.h>
@@ -211,7 +680,7 @@ bool process_block(void)
         return false;
     }
 
-    /* Read or process the block through p_buffer. */
+    /* Process the block. */
 
     free(p_buffer);
     p_buffer = NULL;
@@ -219,13 +688,62 @@ bool process_block(void)
 }
 ```
 
-In C, `malloc()` returns `void *`, and C permits converting that result to an object-pointer type without an explicit cast. Its narrow purpose is to show the allocation boundary: check the result before use and release a successful allocation when its lifetime ends. An API that returns owned storage needs a validated output pointer and an explicit ownership contract. Never dereference the pointer after `free()`; assigning the local pointer to `NULL` prevents accidental reuse through that local name but cannot repair other aliases.
+Important points:
 
-### 6.1 Out of memory, leaks, and fragmentation
+- check the result before dereferencing;
+- define who owns a successful allocation;
+- release it exactly once when its lifetime ends;
+- do not use it after release;
+- setting one local pointer to `NULL` does not repair other aliases.
 
-**Out of memory (OOM)** means an allocation request cannot be satisfied. `malloc()` commonly reports this with `NULL`; a program must handle that outcome before it uses the pointer. A failure does not prove that all memory is consumed: the request may be too large, the allocator may have policy constraints, or free memory may not be available as one suitable block.
+In C, `malloc()` returns `void *`, which converts to an object-pointer type without an explicit cast. Casting the result is not required for this conversion and does not validate the allocation. Session 02's association with MISRA Rule 11.6 is incorrect because that rule concerns casts between `void *` and arithmetic types, not the ordinary C conversion from `void *` to another object-pointer type. The primary exercise correction remains owned by the exercise gate. [ISO C99 §6.3.2.3; M01-CR-004]
 
-A **memory leak** occurs when allocated storage remains allocated after it is no longer needed, or after the program loses the ownership or reference needed to release it. A repeating error path that skips `free()` can slowly reduce available memory. This small flow shows allocation, an invalid-input path, and the cleanup that path requires:
+### 9.2 Allocation failure
+
+`malloc()` returns a null pointer when it cannot provide the requested storage.
+
+A null result does not reveal the full root cause. Possible reasons include:
+
+- insufficient total free memory;
+- no sufficiently large contiguous block;
+- allocator policy;
+- resource limits;
+- address-space limits;
+- internal allocator metadata failure;
+- target-specific restrictions.
+
+The API must define what the caller does when allocation fails.
+
+### 9.3 Memory leak
+
+A memory leak occurs when allocated storage remains allocated after the program no longer needs it, or when the program loses the ownership information needed to release it.
+
+**Intentionally incorrect negative example — an early error return leaks storage.**
+
+```c
+#include <stdbool.h>
+#include <stdlib.h>
+
+bool process_input_leaking(bool input_is_valid)
+{
+    void *p_buffer = malloc(128U);
+
+    if (p_buffer == NULL)
+    {
+        return false;
+    }
+
+    if (!input_is_valid)
+    {
+        return false; /* Incorrect: p_buffer is still allocated. */
+    }
+
+    free(p_buffer);
+    return true;
+}
+```
+
+When `malloc()` succeeds and `input_is_valid` is false, the function loses its only local ownership reference without calling `free()`. The following corrected version releases the allocation on every path after successful allocation.
 
 ```c
 #include <stdbool.h>
@@ -242,168 +760,539 @@ bool process_input(bool input_is_valid)
 
     if (!input_is_valid)
     {
-        /* Returning here without free(p_buffer) would leak the allocation. */
         free(p_buffer);
         return false;
     }
 
-    /* Process the valid input. */
+    /* Process valid input. */
+
     free(p_buffer);
     return true;
 }
 ```
 
-Both the invalid-input and success paths release the same owned allocation. Make ownership explicit: identify who releases each successful allocation, and ensure all normal and error paths preserve that rule.
+Every path after successful allocation must preserve the ownership rule.
 
-**Fragmentation** is a loss of useful allocation capacity caused by free blocks being split into smaller noncontiguous pieces. A program can have sufficient total free memory yet fail a request that needs one contiguous block.
+Process-exit reclamation does not make leaks acceptable in:
 
-```text
-Current allocation arena: [free 32 B] [used 64 B] [free 32 B]
-Total free space: 64 B
-New request:     48 B
-Result:          cannot use the two 32-B blocks as one contiguous 48-B block
-```
+- firmware;
+- daemons;
+- services;
+- long-running tests;
+- restartable subsystems;
+- repeated library calls.
 
-Long-running Linux services and embedded systems with bounded RAM both need to consider this risk. A fixed-size buffer, static allocation, or a bounded pool may be a more predictable design, but choosing those designs is a later architecture decision rather than a universal replacement for `malloc()`.
+### 9.4 Fragmentation
 
-## 7. Null, Bad, and Dangling Pointers
-
-A null pointer is a value that does not designate an object or function. It is useful as an explicit "no object" state, but dereferencing it is undefined behavior. M01-L01 established the basic rule: validate a pointer according to the API contract before dereferencing it.
-
-Not every bad pointer is null. A pointer may be uninitialized, may point outside an object, may refer to an object whose lifetime ended, or may be the result of an invalid conversion. After `free(p_buffer)`, the old value is dangling; after a function returns, a pointer to one of its automatic locals is also dangling. Neither becomes safe merely because its numerical address still looks plausible.
-
-```c
-uint8_t *p_buffer = malloc(16U);
-
-if (p_buffer != NULL)
-{
-    free(p_buffer);
-    p_buffer = NULL;
-}
-```
-
-This pattern makes the local variable safely represent "no current allocation." It does not validate an unrelated pointer, and it does not remove a dangling copy held elsewhere. Good API boundaries minimize aliases and make ownership clear.
-
-When session-02 prints object addresses, use `%p` with an object pointer converted to `void *`, as required by `printf`. Do **not** treat conversion of a function pointer to `void *` as universally portable ISO C behavior. Use `nm` or `objdump` to investigate generated code symbols instead of relying on a function-address cast for the `.text` observation.
-
-## 8. Inspect One Build with `size`, `nm`, and `objdump`
-
-The GNU Binutils tools answer different questions. Use them after a successful build, with the exact binary, compiler options, linker configuration, and target recorded. Their output describes that artifact; it is not a general memory map for every C program.
-
-### 8.1 `size`: a high-level footprint summary
-
-```bash
-size memory_demo
-```
-
-GNU `size` in its default Berkeley format prints `text`, `data`, and `bss` summary columns. Treat those labels as accounting categories, not literal section names. In particular, GNU Binutils documents that read-only data is counted in the Berkeley `text` column, not the `data` column. Therefore, a larger `text` value does not prove that only executable instructions grew.
-
-Use `size` to compare the same program across deliberate build changes—for example, a baseline build and one built with `-Os`. Record the command and target, then ask what changed and verify with a more detailed tool if necessary. It is not evidence that an object has a particular address or that RAM and image usage are fully explained by three column names.
-
-### 8.2 `nm`: symbols and their usual categories
-
-```bash
-nm -S memory_demo | grep -E 'g_sample_period_ms|g_samples_received'
-```
-
-On a conventional GNU target, `nm` type letters often help classify a symbol: `T` commonly denotes code, `R` read-only data, `D` initialized data, and `B` BSS. The GNU documentation qualifies those meanings as object-format and system dependent. Symbols can be local, stripped, merged, renamed, or removed by optimization, so absence is an observation requiring investigation, not proof that a source declaration has no storage.
-
-Use `nm` to support the exercise's hypothesis that named static objects are represented where you expect in one build. Do not infer heap or stack placement from `nm`: those are runtime concepts rather than ordinary static symbols in the executable.
-
-### 8.3 `objdump -h`: inspect actual section headers
-
-```bash
-objdump -h memory_demo
-```
-
-`objdump` displays information about object files; `-h` lists their section headers. It is the right next tool when the actual section names and sizes matter more than the three `size` summaries. Look for familiar names such as `.text`, `.rodata`, `.data`, and `.bss`, then compare them with your source declarations and the toolchain's conventions.
-
-Do not use raw runtime-address differences as a portable measurement of segment distance. ISO C permits pointer subtraction only within an array object, not between unrelated global, heap, or stack objects. `uintptr_t` is optional; it exists only when the implementation provides a suitable unsigned integer type capable of representing converted object-pointer values. If a lab converts object addresses to `uintptr_t` on a supporting implementation to print an observed numeric difference, record it as a property of that one build and process. It can change across runs and is not a language-level ordering or capacity guarantee.
-
-## 9. Basic GDB Workflow for a Crash or Deep Call Chain
-
-GDB makes the conceptual call stack visible while a program is stopped. Build a diagnostic configuration with debug information; for an introductory investigation, `-g -O0` makes source-level stepping and local-variable inspection easier. This is a debugging configuration, not automatically the correct release configuration.
+Fragmentation can prevent a request even when the sum of free space appears sufficient.
 
 ```text
-$ gdb ./memory_demo
-(gdb) break observe_depth
+[free 32 B] [used 64 B] [free 32 B]
+
+Total free: 64 B
+Request:    48 B
+Result:     no single 48-B contiguous block
+```
+
+Actual behavior depends on allocator design and workload.
+
+### 9.5 MISRA Directive 4.12 boundary
+
+MISRA C:2012 Directive 4.12 states that dynamic memory allocation shall not be used. It is categorized as Required.
+
+Therefore:
+
+- the educational Session 02 allocation lab intentionally conflicts with the directive;
+- the lab does not recommend unrestricted production heap use;
+- a project claiming MISRA compliance needs the applicable formal deviation if it chooses dynamic allocation;
+- checking for `NULL` makes the code safer but does not make the design compliant with the directive;
+- the decision must consider bounded behavior, timing, ownership, fragmentation, failure handling, and project policy.
+
+[MISRA C:2012 Dir 4.12; M01-CR-003]
+
+**Must remember:** dynamic allocation is a design policy plus a runtime contract; successful `malloc()` creates both storage and an ownership obligation.
+
+## 10. Memory-Selection Decision Model
+
+No storage strategy is universally best. Choose based on lifetime, capacity, failure model, concurrency, target resources, and project policy.
+
+| Choice | Good fit | Main risks or limits | Required evidence |
+| --- | --- | --- | --- |
+| Automatic storage | Small bounded temporary state tied to one invocation | Stack exhaustion, lifetime ends on return | Maximum size, call depth, task-stack budget |
+| Static storage | Program-lifetime state, fixed buffers, persistent module state | Global coupling, non-reentrancy, fixed RAM cost | Ownership, initialization, concurrency policy, linker/runtime evidence |
+| Dynamic allocation | Runtime-selected capacity or lifetime | OOM, leaks, fragmentation, timing variability, policy conflict | Allocation contract, ownership, failure paths, allocator behavior |
+| Read-only object | Immutable tables, labels, configuration constants | Physical placement not guaranteed by `const` alone | Type semantics plus section/linker/target evidence |
+| Fixed pool | Bounded object count with predictable storage policy | Capacity exhaustion, pool design complexity | Pool size, allocation/release rules, concurrency behavior |
+
+### Questions to ask before choosing
+
+```text
+How long must the object live?
+What is the maximum capacity?
+Can the capacity be known at build time?
+What happens when storage is unavailable?
+Must allocation time be bounded?
+Can the API be called concurrently?
+Who owns release?
+Which memory budget is affected?
+Which project safety rule applies?
+```
+
+### Important boundaries
+
+- Static allocation avoids runtime allocation failure but can still create system-level capacity failure.
+- Automatic storage is not “free”; it consumes stack capacity while active.
+- `const` does not prove physical read-only placement.
+- Dynamic allocation is not always wrong, but it requires an explicit policy and failure model.
+- Fixed-pool implementation and allocator architecture belong to M02.
+
+**Must remember:** choose storage from lifetime, capacity, failure, ownership, and timing requirements—not from a slogan such as “never use heap” or “static is always safe.”
+
+## 11. Binary-Inspection Tools and Their Limits
+
+Use each tool to answer a specific question about a specific artifact.
+
+| Tool | Primary question | Typical evidence | What it cannot prove by itself |
+| --- | --- | --- | --- |
+| `size` | What high-level footprint summary does this artifact report? | Berkeley-style `text`, `data`, `bss` summaries | Exact section placement, runtime heap/stack use, physical addresses |
+| `nm` | Which symbols exist and how are they commonly classified? | Symbol names, addresses, sizes, type letters | Complete section layout, runtime dynamic storage, portable classification |
+| `objdump -h` | Which section headers and sizes exist in this object? | Actual section names, sizes, flags | Final physical target placement without linker/target context |
+| `readelf` | What ELF headers, sections, symbols, and program headers exist? | ELF-specific structural evidence | Non-ELF formats or complete board-level memory behavior |
+| Linker map | How did the linker allocate input sections and symbols? | Output sections, addresses, contributions, symbols | Runtime allocator behavior or all loader/runtime changes |
+
+### 11.1 GNU `size`
+
+```text
+size firmware.elf
+```
+
+Use it for:
+
+- baseline footprint;
+- regression comparison;
+- optimization comparison;
+- quick image/RAM category review.
+
+Limitations:
+
+- Berkeley column names are summaries;
+- read-only data can contribute to `text`;
+- `bss` is not “zero RAM”;
+- heap and stack future usage are not represented as ordinary allocated runtime consumption.
+
+### 11.2 GNU `nm`
+
+```text
+nm -S firmware.elf
+```
+
+Common GNU symbol letters can include:
+
+- `T`/`t`: code-related symbols;
+- `R`/`r`: read-only data;
+- `D`/`d`: initialized writable data;
+- `B`/`b`: BSS-like storage.
+
+Exact meaning depends on object format and platform. Optimization, stripping, merging, and garbage collection can remove or transform symbols.
+
+Use `nm` to inspect a named symbol, not to infer the entire physical memory map.
+
+### 11.3 GNU `objdump`
+
+```text
+objdump -h firmware.elf
+```
+
+This shows section headers and is useful when the `size` summaries are too coarse.
+
+Additional commands can disassemble code or display symbols, but full disassembly analysis is outside M01.
+
+### 11.4 GNU `readelf`
+
+```text
+readelf -S firmware.elf
+readelf -l firmware.elf
+```
+
+For ELF artifacts:
+
+- `-S` inspects section headers;
+- `-l` inspects program headers/segments used by a loader.
+
+This helps distinguish:
+
+```text
+link-time sections
+from
+load-time segments
+```
+
+ELF is not universal. Do not teach `readelf` output as a C-language requirement.
+
+### 11.5 Linker map
+
+A linker map can answer:
+
+- which object file contributed bytes;
+- how input sections formed output sections;
+- where symbols were assigned;
+- why one section grew;
+- which region overflowed;
+- which content was discarded or retained.
+
+It is often the strongest evidence for final link allocation, but physical behavior still depends on startup and target execution.
+
+### 11.6 Pointer-address limitations
+
+ISO C pointer subtraction is defined only for pointers into the same array object or one past it. Subtracting pointers to unrelated globals, heap objects, and automatic objects is not portable distance measurement. [ISO C99 §6.5.6]
+
+A supporting implementation may convert object pointers to `uintptr_t` for diagnostic output. Such numeric differences are implementation-scoped observations and must not be called portable segment distances. [ISO C99 §7.18.1.4; M01-CR-007, M01-CR-015]
+
+### 11.7 Function-symbol evidence
+
+Do not print a function pointer with `%p` by assuming it converts portably to `void *`. ISO C distinguishes function pointers from object pointers. Use `nm`, `objdump`, or debugger symbol information for function-code evidence. [M01-CR-006]
+
+**Must remember:** select the tool from the question, record the exact artifact, and state what the evidence does not prove.
+
+## 12. Basic GDB Workflow
+
+GDB helps turn a crash or unexpected call chain into a testable hypothesis.
+
+### 12.1 Prepare a diagnostic build
+
+A simple introductory host build can use:
+
+```text
+gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -g -O0 demo.c -o demo
+```
+
+Record:
+
+- compiler and version;
+- target;
+- flags;
+- exact binary;
+- input that reproduces the issue.
+
+`-O0` often makes source-level investigation easier, but it is not automatically the release configuration and can change the failure.
+
+### 12.2 Core commands
+
+```text
+gdb ./demo
 (gdb) run
 (gdb) backtrace
-(gdb) frame 1
+(gdb) frame 0
+(gdb) info args
 (gdb) info locals
-(gdb) print remaining_depth
+(gdb) print pointer_value
 ```
 
-- `run` starts the program under GDB.
-- `backtrace` (also `bt` or `where`) lists the current frame and its callers. It answers: *how did execution get here?*
-- `frame 1` selects a caller frame. `frame 0` returns to the innermost stopped function.
-- `info locals` shows local variables accessible in the selected frame.
-- `print expression` evaluates and displays a source-level expression, such as a depth variable or pointer value.
-
-For a suspected stack failure, first capture the backtrace, select the relevant frame, inspect depth and local state, then compare the actual call path with the expected bound. For a bad-pointer failure, inspect the pointer value and the contract that should have established it. Do not assume an incomplete backtrace proves no stack problem: optimized code, corrupted call state, and missing debug information can limit what GDB can reconstruct.
-
-## 10. Optimization Levels and What They Change
-
-Optimization changes the generated program while preserving the C abstract machine's required observable behavior for defined programs. It does not promise identical timing, instruction count, code layout, stack-frame appearance, addresses, or debugger visibility. It may reduce code size, reduce execution time, increase either one, remove unused objects, inline functions, alter call structure, or make a local difficult to inspect. It can also expose existing undefined behavior because the compiler is entitled to assume the program obeys the language rules.
-
-For GCC, use these levels as intent labels rather than a universal performance ranking:
-
-| Option | Typical purpose | Debugging and measurement implication |
-| --- | --- | --- |
-| `-O0` | Disable most optimization passes; prioritize fast compilation and expected source-level debugging behavior. | Useful for first GDB investigations; not a release-performance measurement. |
-| `-O1` | Enable a basic optimization set. | Compare generated size and runtime on the target; frame and local-variable views may already change. |
-| `-O2` | Enable a broader set of optimizations, generally avoiding deliberate space–speed trade-offs. | A common production comparison point, but not proof of best result for every target. |
-| `-O3` | Add more aggressive transformations, including additional loop-oriented work. | May improve a measured workload or increase code size; verify behavior, timing, and footprint. |
-| `-Os` | Prefer transformations intended to reduce code size. | Smaller output can be valuable for constrained images, but measure speed and RAM effects too. |
-
-The level number does not mean "always faster than the previous number." GCC enables a target- and configuration-dependent set of passes at each level, and a transformation can help one workload while harming another. Record compiler version and flags, use `size` to inspect output, and measure representative behavior on the intended target. Never use an optimized build's changed addresses or omitted locals as evidence that the source-level memory model changed.
-
-## 11. Session-02 Preparation: What to Observe Safely
-
-Session-02 has two learning goals. The Memory Segment Analyzer asks you to declare representative objects, inspect the result with `size` and `nm` or `objdump`, and compare observations. The Stack Depth Monitor asks you to control recursive depth before reaching a real overflow. The following connections explain why each requirement exists without providing the exercises' solutions.
-
-| Session-02 requirement | Lesson preparation |
+| Command | Question answered |
 | --- | --- |
-| Representative code, constant, initialized, zero-initialized, heap, and local objects | Classify their C semantics first, then inspect the particular build's sections and runtime behavior. |
-| Address output and apparent distances | Print object pointers correctly, but treat addresses and numeric differences as one-process observations. |
-| `size`, `nm`, and `objdump` verification | Use summaries for trends, symbols for named objects, and section headers for actual section inspection. |
-| Recursion and a configurable guard | Bound depth before a real overflow; do not assume frame size, stack direction, or a fixed bytes-per-call value. |
-| `malloc()` and `free()` | Check allocation before use, release every successful allocation, and avoid use after free. |
-| Strict build and debug evidence | Build with the recorded compiler settings; use `-g -O0` for an initial GDB investigation, then compare with the intended build. |
+| `run` | Can the issue be reproduced under the debugger? |
+| `backtrace` | Which call chain reached the stop? |
+| `frame N` | What state is visible in one selected invocation? |
+| `info args` | What arguments reached this invocation? |
+| `info locals` | Which local values are available? |
+| `print` | What is the value of a relevant expression? |
 
-The exercises are designed to produce evidence, not universal truths. Preserve the command output and state the compiler, target, options, and operating environment that produced it.
+### 12.3 Stack-exhaustion hypothesis
 
-## 12. Common Failure Patterns and a Focused Debugging Order
+Inspect:
 
-| Symptom | First question | Useful first evidence |
+- repeated or unexpectedly deep frames;
+- current depth values;
+- large automatic objects;
+- configured stack size;
+- whether reducing a bounded test depth changes the result.
+
+### 12.4 Bad-pointer hypothesis
+
+Inspect:
+
+- nullness;
+- pointer value;
+- owner;
+- allocation/release history;
+- index and capacity;
+- object lifetime;
+- the exact dereference.
+
+### 12.5 Evidence limits
+
+GDB evidence can be limited by:
+
+- optimization;
+- inlining;
+- omitted frame pointers;
+- stripped symbols;
+- corrupted stack state;
+- undefined behavior;
+- debugger/target limitations.
+
+An incomplete backtrace does not prove that stack exhaustion did not occur. A plausible pointer value does not prove that it designates a live object.
+
+**Must remember:** GDB reveals state from one stopped execution; combine it with the source contract, build context, and controlled experiments.
+
+## 13. Optimization Levels and Evidence
+
+Optimization changes generated code while preserving the required observable behavior of a program whose execution is defined under the language rules.
+
+It can change:
+
+- instruction selection;
+- inlining;
+- function boundaries;
+- local-variable visibility;
+- frame layout;
+- stack use;
+- section sizes;
+- symbol availability;
+- code and data addresses;
+- execution timing.
+
+It must not change the required observable behavior of a defined program, but it can expose existing undefined behavior because the compiler may assume the program obeys the language rules.
+
+### 13.1 GCC level meanings are intent, not rankings
+
+| Option | General intent | Engineering boundary |
 | --- | --- | --- |
-| Static data has an unexpected initial value | Did startup establish `.data` and BSS state before application code ran? | Startup/toolchain documentation and the built section report. |
-| A recursive path crashes or behaves inconsistently | Is depth bounded, and what actual call chain reached the failure? | GDB `backtrace`, selected-frame locals, and a controlled guard. |
-| `malloc()` failure causes a crash | Was `NULL` handled before the pointer was used? | The allocation result, requested size, and the failure path. |
-| Memory use grows during repeated work | Does every successful allocation have a release owner on every path? | Allocation/release ownership review and repeatable workload evidence. |
-| A buffer write causes a distant crash | Is an index inside the object's valid range? | Capacity, index, and the first out-of-bounds access. |
-| Footprint changes unexpectedly after a build flag change | Which sections or symbols changed in this exact artifact? | `size`, `nm`, `objdump -h`, compiler version, and flags. |
+| `-O0` | Disable most optimization; favor compile speed and straightforward debugging | Not representative of release size or timing |
+| `-O1` | Enable a basic optimization set | Can already alter frames and variable visibility |
+| `-O2` | Enable a broader optimization set | Not guaranteed to be fastest or smallest |
+| `-O3` | Add more aggressive transformations | Can improve or worsen size and workload performance |
+| `-Os` | Optimize with code-size goals | Smaller code is not guaranteed for every program/target |
 
-Start with the smallest reliable observation: reproduce with the recorded build, identify the failing function or input, inspect the call chain and relevant data, then confirm the physical artifact with the appropriate tool. Do not jump from one numerical address or one `size` column to a conclusion about all targets.
+Exact enabled passes depend on:
 
-## 13. Key Takeaways
+- GCC version;
+- target;
+- language;
+- other options.
 
-- `.text`, `.rodata`, `.data`, and `.bss` are useful toolchain conventions, not physical placements mandated by ISO C.
-- Nonzero initialized writable static data commonly needs image bytes and startup copying to RAM; BSS-like data commonly needs RAM plus startup zeroing. Explicit zero initialization is often placed in BSS, but that remains a toolchain decision.
-- `const` data is commonly emitted into a read-only section; it is not an ISO C guarantee of physical placement.
-- Heap and stack are runtime-memory concepts. Frame layout, stack direction, object addresses, and apparent inter-region distances are not portable guarantees.
-- Bound recursion and validate every array access. A stack overflow and a buffer overflow can both corrupt memory, but they have different root causes.
-- Check `malloc()` results, define ownership, free successful allocations, and design for OOM and fragmentation where dynamic allocation is permitted.
-- Use `size` for a footprint summary, `nm` for named symbols, and `objdump -h` when actual section inspection matters. GNU `size` Berkeley columns are summaries, and read-only data may be counted under `text`.
-- Use GDB's `run`, `backtrace`, `frame`, `info locals`, and `print` to turn a crash into a bounded investigation.
-- Treat GCC optimization levels as build choices to measure on the intended compiler and target, never as a universal speed ranking.
+### 13.2 Correct comparison workflow
 
-## 14. Further Reading
+```text
+same source
+→ same target
+→ record compiler version
+→ change one optimization option
+→ build exact artifacts
+→ compare size
+→ run representative target measurements
+→ inspect changed sections/symbols
+→ document conclusion
+```
 
-- [GNU Binutils `size` documentation](https://sourceware.org/binutils/docs/binutils/size.html)
-- [GNU Binutils `nm` documentation](https://sourceware.org/binutils/docs/binutils/nm.html)
-- [GNU Binutils `objdump` documentation](https://sourceware.org/binutils/docs/binutils/objdump.html)
-- [GNU GDB: Running Programs](https://sourceware.org/gdb/current/onlinedocs/gdb.html/Running.html), [Backtraces](https://sourceware.org/gdb/current/onlinedocs/gdb.html/Backtrace.html), and [Frame Information](https://sourceware.org/gdb/current/onlinedocs/gdb/Frame-Info.html)
-- [GCC Optimize Options](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html)
-- [CMSIS-Core startup-file documentation](https://arm-software.github.io/CMSIS_6/latest/Core/startup_c_pg.html)
-- [Zephyr early boot sequence](https://docs.zephyrproject.org/latest/hardware/porting/arch.html)
+Do not compare one `-O0` host build against a different `-Os` embedded build and attribute every difference to optimization.
+
+### 13.3 Optimization and undefined behavior
+
+Optimization does not create undefined behavior in an otherwise defined program.
+
+A better model is:
+
+```text
+source already contains undefined behavior
+→ optimizer assumes language rules hold
+→ generated behavior differs from debug expectations
+→ defect becomes visible
+```
+
+The correction is to remove the undefined behavior, not to declare optimization unsafe.
+
+### 13.4 Debugging boundary
+
+An optimized build may show:
+
+- `<optimized out>`;
+- reordered instructions;
+- inlined calls;
+- missing frames;
+- unexpected variable locations.
+
+These effects limit debugger observability; they do not mean that the C object model changed.
+
+[M01-CR-013]
+
+**Must remember:** optimization options are hypotheses about generated code; validate size, timing, stack, and debug effects on the intended compiler and target.
+
+## 14. Failure-Analysis Workflow
+
+Use a disciplined workflow instead of jumping from one symptom to one conclusion.
+
+```text
+symptom
+→ reproducible case
+→ competing hypotheses
+→ required evidence
+→ appropriate tool
+→ controlled experiment
+→ root cause
+→ corrective action
+→ verification
+```
+
+### 14.1 Step 1 — State the symptom precisely
+
+Weak:
+
+> Memory is broken.
+
+Strong:
+
+> The process faults after approximately 420 repeated requests in build X with input Y; RSS grows continuously and each request performs one dynamic allocation.
+
+### 14.2 Step 2 — Preserve the context
+
+Record:
+
+- source revision;
+- compiler and version;
+- target;
+- build flags;
+- binary;
+- input;
+- environment;
+- task or process limits;
+- relevant logs.
+
+### 14.3 Step 3 — Create competing hypotheses
+
+Example for a recursive crash:
+
+- stack capacity exhausted;
+- buffer overwrite corrupted return state;
+- dangling pointer used during a deep call;
+- optimization exposed existing UB;
+- task stack configured incorrectly.
+
+### 14.4 Step 4 — Select evidence by hypothesis
+
+| Hypothesis | Useful evidence |
+| --- | --- |
+| Stack exhaustion | Backtrace depth, task-stack configuration, large automatic objects, stack-usage evidence |
+| Bad pointer | Stopped dereference, owner/lifetime, allocation/release path, index/capacity |
+| Leak | Repeated workload, ownership review, allocation/release counts |
+| Unexpected section growth | `size`, `nm`, `objdump`, `readelf`, linker map |
+| Startup initialization failure | Startup code, linker symbols, section/load evidence, state before `main()` |
+| Optimization-sensitive failure | Same source built under controlled options, UB review, changed debugger/tool evidence |
+
+### 14.5 Step 5 — Change one variable
+
+Examples:
+
+- reduce bounded recursion depth without changing pointer logic;
+- correct one bounds check without changing optimization;
+- add missing cleanup without changing workload;
+- rebuild only with a different optimization flag;
+- compare only one known section contribution.
+
+### 14.6 Step 6 — Correct the root cause
+
+Possible corrections include:
+
+- enforce capacity before indexing;
+- remove recursion or define a verified production bound;
+- redesign ownership and cleanup;
+- handle allocation failure;
+- reduce automatic storage;
+- correct linker/startup configuration;
+- remove undefined behavior;
+- select a more predictable storage policy.
+
+### 14.7 Step 7 — Verify and retain evidence
+
+Verify:
+
+- the original case;
+- boundary cases;
+- long-running behavior where relevant;
+- intended release configuration;
+- target-specific constraints.
+
+A fix that only hides the symptom under `-O0` is not a complete correction.
+
+**Must remember:** a tool is chosen after the hypothesis; the result is trusted only within the recorded build and experiment.
+
+## 15. Embedded and Linux Applications
+
+The three-layer model and failure workflow apply to both firmware and Linux systems, but the evidence differs.
+
+| Scenario | Engineering question | Useful evidence | Boundary |
+| --- | --- | --- | --- |
+| Firmware image budget | Which content increased program-image size? | `size`, section headers, symbols, linker map | Section growth is not automatically runtime RAM growth |
+| Firmware RAM budget | Which static, heap, stack, or task resources consume RAM? | Linker map, runtime configuration, allocation policy, stack evidence | `size` summaries alone are insufficient |
+| Boot-time initialization | Were writable initialized and zero-initialized objects established correctly? | Startup code, linker symbols, memory map, early debugger inspection | Exact sequence is implementation-specific |
+| RTOS task stack | Is the configured stack sufficient for worst-case call paths and interrupts? | Task configuration, call analysis, high-water evidence, target measurements | One recursive address proxy is not proof |
+| Long-running Linux service | Is memory growth a cache, retained ownership, fragmentation, or leak? | Workload evidence, ownership review, process metrics, allocator tools | Process exit does not excuse operational leaks |
+| Crash triage | Is the failure stack exhaustion, buffer corruption, or invalid lifetime? | Core/debugger state, backtrace, pointer and capacity evidence | One signal or frame is not proof |
+| Binary-size regression | Which source or library contribution changed? | Same-build comparison, symbols, sections, map | Compiler/target changes must be controlled |
+| Optimization regression | Did size, timing, stack, or observability change? | Same source/target under recorded options | Higher optimization is not universally better |
+
+### Example: Embedded firmware
+
+A large zero-initialized buffer can:
+
+- barely change load-image payload;
+- significantly increase runtime RAM;
+- reduce available stack/heap space;
+- cause a link-region overflow.
+
+The correct evidence can include a linker map and target memory-region definition, not only `size`.
+
+### Example: Linux service
+
+A service can have:
+
+- stable executable section size;
+- stable static data;
+- growing dynamic allocations during requests.
+
+Binary tools cannot prove or disprove the runtime leak. The ownership path and workload behavior must be inspected.
+
+### Example: Cross-build interpretation
+
+A host `gcc` result is not direct evidence for an ARM firmware image. Use the intended cross compiler, target ABI, linker configuration, and target runtime.
+
+**Must remember:** preserve the same reasoning method across environments, but use evidence from the actual loader, runtime, allocator, ABI, and target.
+
+## 16. Key Takeaways and References
+
+### Review checklist
+
+- Did I separate ISO C semantics, executable representation, and physical placement?
+- Did I label every section and memory-map claim as implementation-specific?
+- Did I distinguish load-image content from runtime storage?
+- Did I explain that BSS-like storage still consumes runtime memory?
+- Did I avoid claiming that `const` guarantees Flash or `.rodata`?
+- Did I avoid assuming stack direction or fixed frame size?
+- Is recursion bounded for the experiment, and is the Rule 17.2 conflict explicit?
+- Did I distinguish stack exhaustion from buffer and pointer corruption?
+- Does every successful allocation have one clear owner and release path?
+- Is allocation failure handled before pointer use?
+- Did I identify the project's dynamic-allocation and deviation policy?
+- Did I choose `size`, `nm`, `objdump`, `readelf`, or a linker map from the question being asked?
+- Did I record the exact binary, compiler, target, and flags?
+- Did I treat optimization results as measurements rather than rankings?
+- Did I follow symptom → hypothesis → evidence → correction?
+
+### Claim-level reference allocation
+
+| Claim family | Primary authority | Supporting authority |
+| --- | --- | --- |
+| Storage duration, initialization, pointers, allocation, and language behavior | ISO/IEC 9899:1999 and applicable public WG14 material | Selected implementation documentation |
+| Dynamic-allocation restriction and recursion rule | MISRA C:2012 Directive 4.12 and Rule 17.2 | Project compliance/deviation policy |
+| Binary-size and symbol evidence | GNU Binutils manuals for `size`, `nm`, `objdump`, and `readelf` | Selected object-format and target documentation |
+| Link placement | GNU linker documentation and exact linker map | Target memory map and startup documentation |
+| Startup model | Selected compiler runtime, board/architecture startup, and target documentation | ISO C initialization requirements |
+| Stack frames and ABI behavior | Selected ABI and compiler documentation | GNU GDB frame documentation |
+| Debugger workflow | GNU GDB manual: Running, Backtraces, Frames, Arguments, Locals, and Examining Data | Compiler/debug-symbol documentation |
+| Optimization levels | GCC Optimize Options for the selected compiler version | Exact target size and runtime measurements |
+| Linux process behavior | Selected Linux loader, runtime, allocator, and process documentation | Exact process evidence |
+| Embedded placement and memory budget | Target reference manual, linker/startup configuration, and build artifacts | Board/RTOS documentation |
+
+The DevLinux Week 1 Day 2 roadmap and Session 02 define this lesson's learning scope and exercise context. `Full-Embedded-C-Notes.md` remains discovery material only and is not an authority for claims about section placement, startup behavior, stack direction, or physical memory.
+
+No full Memory Segment Analyzer or Stack Depth Monitor solution is included in this lesson.

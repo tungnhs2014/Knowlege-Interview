@@ -1,31 +1,436 @@
 # M01 — Coding Standards & Memory Foundation
 
-## Module purpose
+## 1. Module Identity and Status
 
-Establish the practical coding and memory-analysis foundation needed for the DevLinux Embedded C sequence: write reliable C with an explicit engineering baseline, then identify memory layout and common failure modes.
+| Field | Value |
+| --- | --- |
+| Module | M01 |
+| Canonical title | Coding Standards & Memory Foundation |
+| Current gate | `INTERVIEW_AUDIT` |
+| Gate result | `APPROVED` |
+| Previous approved gate | `SOLUTION_VALIDATION` |
+| Reason | Source-backed Lesson 1 refactoring review |
 
-## Canonical lessons
+M01 has entered an explicitly authorized revision cycle. Earlier approvals remain historical evidence, but the module is not currently represented as `COMPLETE`. No lesson, exercise, solution, or interview artifact may be revised until the applicable architecture gate is explicitly approved.
 
-1. `01-high-reliability-coding-standards.md` — High-Reliability Coding Standards
-2. `02-memory-layout-failure-analysis.md` — Memory Layout & Failure Analysis
+## 2. Module Purpose
 
-## Primary DevLinux source scope
+M01 establishes the reliability and memory-analysis foundation for the remaining DevLinux curriculum. Lesson 1 teaches how to make language, interface, conversion, diagnostic, build, and documentation assumptions reviewable. Lesson 2 separates ISO C object semantics from build-specific memory observations and introduces a bounded failure-analysis workflow for stack, pointer, and allocation failures. Later modules may rely on these concepts without reteaching them.
 
-- `docs/C Advanced/C Advacne DevLinux.txt`, Week 1, Days 1–2.
-- `docs/C Advanced/session-01.md` and `docs/C Advanced/session-02.md` for the later module-level lab phase.
+## 3. Canonical Source Hierarchy for M01
 
-## Expected learning outcomes
+1. **DevLinux Week 1 and Sessions 01–02** define M01 scope, order, four exercise identities, interfaces, expected behavior, output intent, and submission structure: `docs/C Advanced/C Advacne DevLinux.txt`, `docs/C Advanced/C advaced outline devlinux.txt`, `docs/C Advanced/session-01.md`, and `docs/C Advanced/session-02.md`.
+2. **ISO C and WG14 material** define C99 language semantics, including behavior categories, types, conversions, scope, linkage, storage duration, initialization, pointers, and library contracts.
+3. **MISRA C:2012** verifies introductory safety guidance, guideline type and category, compliance boundaries, and deviation concepts. The supplied reference is `docs/C Advanced/references/MISRA C 2012 Guidelines for the use of.pdf`.
+4. **BARR-C:2018** verifies the M01 coding baseline for language selection, braces, parentheses, casts, comments, modules, headers, integer types, initialization, functions, conditionals, loops, and naming. The supplied reference is `docs/C Advanced/references/barr_c_coding_standard_2018.pdf`.
+5. **Official GCC, GNU Make, Doxygen, GNU Binutils, ELF/toolchain, startup-runtime, and GDB documentation** verifies compiler dialects and diagnostics, build behavior, generated documentation, binary inspection, executable format, initialization, and debugger behavior.
+6. **CERT C** may supplement security and defensive-programming clarification where M01 needs it; it does not override DevLinux scope or establish compliance by citation alone.
+7. **`docs/C Advanced/Full-Embedded-C-Notes.md`** is supplementary discovery and comparison material only. It is neither curriculum nor technical authority, and every reused claim requires independent verification.
 
-- Explain why a reliable coding baseline matters in Embedded C and apply the selected project conventions.
-- Recognize portability, compiler-diagnostic, scope, lifetime, and undefined- or unspecified-behavior risks in the Week 1 scope.
-- Describe the conceptual `.text`, `.rodata`, `.data`, `.bss`, heap, and stack layout of a C program.
-- Use the Week 1 failure-analysis workflow to investigate stack, allocation, and pointer-related faults.
+The DevLinux files and reference PDFs are immutable inputs during this refactor. Any source error is recorded below and handled later in the owning module artifact; the source itself is not edited.
 
-## Planned artifacts
+## 4. Lesson Ownership Map
 
-- `README.md`
-- `01-high-reliability-coding-standards.md`
-- `02-memory-layout-failure-analysis.md`
-- `exercises.md`
-- `solutions/`
-- `interview.md`
+Coverage status describes the current artifact observed at this gate, not final approval:
+
+| Status | Meaning |
+| --- | --- |
+| `COVERED_CORRECTLY` | Current coverage is substantively aligned and has no blocker found in this mapping pass. |
+| `COVERED_BUT_NEEDS_SOURCE_TRACE` | Current explanation is useful, but authoritative claim-level traceability must be added or tightened. |
+| `PARTIALLY_COVERED` | Part of the required concept is present; an approved refactor must fill a defined gap. |
+| `MISSING` | Required DevLinux content or a necessary clarification is absent. |
+| `TECHNICAL_REVIEW_REQUIRED` | Current wording or cited guidance requires authoritative review before reuse. |
+| `OUT_OF_SCOPE` | The concept may be named only as a boundary and is owned elsewhere. |
+
+Mapping confidence describes confidence in the source mapping, not whether the current lesson content is correct:
+
+| Confidence | Meaning |
+| --- | --- |
+| `HIGH` | Direct DevLinux source exists and the appropriate verification authority is identified. |
+| `MEDIUM` | Scope is clear, but a specific toolchain, target, ABI, implementation document, or final authoritative reference must be selected later. |
+| `LOW` | Mapping depends on inference, a missing source, an unavailable amendment/addendum, or an unresolved source conflict. |
+
+### 4.1 Lesson 1 — High-Reliability Coding Standards
+
+Canonical artifact: `01-high-reliability-coding-standards.md`.
+
+| Concept/topic | Exact DevLinux source and location | Owner | Verification authority | Current coverage | Required action | Known ambiguity or risk | Mapping confidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Historical C revisions relevant to DevLinux | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1, `Day 1: High-Reliability Coding Standards`, “Recognize historical standards of C” | M01-L01 | ISO/WG14 publication history | `COVERED_CORRECTLY` | Preserve a short C89/C90/C99/C11 orientation. | Do not turn history into a standards survey. | `HIGH` |
+| C99 curriculum baseline | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, “Enforcing MISRA C:2012 and BARR-C:2018 guidelines (ISO C99 standard)” | M01-L01 | ISO C99/WG14; BARR-C:2018 §1.1 | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Retain C99 as the default and cite the governing sources. | Later standards are module-scoped exceptions, not a replacement baseline. | `HIGH` |
+| ISO C versus compiler dialect | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, standards history and compiler options | M01-L01 | ISO C99; GCC C Dialect Options | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Trace dialect and extension claims to compiler documentation. | `-std=c99` does not by itself reject every extension. | `HIGH` |
+| MISRA C role | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, “Enforcing MISRA C:2012”; `docs/C Advanced/session-01.md` — both `Coding Standards Reference` sections | M01-L01 | MISRA C:2012 §§5–8 | `PARTIALLY_COVERED` | Keep the introductory safety role and add precise source trace. | Selected rules do not establish complete compliance. | `HIGH` |
+| BARR-C role | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, “BARR-C:2018”; `docs/C Advanced/session-01.md` — both exercise rule lists | M01-L01 | BARR-C:2018 §§1–8 | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Tie representative practices to exact BARR-C sections. | Session shorthand must not imply every integer must be fixed-width. | `HIGH` |
+| Rule versus directive | `docs/C Advanced/session-01.md` — `Coding Standards Reference` tables using both identifiers | M01-L01 | MISRA C:2012 §6.1 and §§7–8 | `MISSING` | Add a brief distinction at introductory depth. | A directive may require information beyond source-code inspection. | `HIGH` |
+| Mandatory, Required, Advisory | `docs/C Advanced/session-01.md` — MISRA category columns | M01-L01 | MISRA C:2012 §6.2 | `MISSING` | Explain the three categories and their deviation implications concisely. | Category is not a ranking of technical importance. | `HIGH` |
+| Compliance and deviation | `docs/C Advanced/session-01.md` — instruction to apply selected MISRA guidance | M01-L01 | MISRA C:2012 §§5.3–5.5 | `PARTIALLY_COVERED` | Add bounded scope, evidence, compliance-matrix, authorization, and deviation context. | A clean compiler or analyzer run is not a compliance claim. | `HIGH` |
+| Fixed-width integer types | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, “Replacing native types with portable fixed-width integers”; `docs/C Advanced/session-01.md` — required interfaces | M01-L01 | ISO C99 §7.18; BARR-C:2018 §5.2 | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Preserve exact-width availability caveat and cite the source. | Exact-width typedefs are optional when no matching representation exists. | `HIGH` |
+| Signed/unsigned and conversion discipline | `docs/C Advanced/session-01.md` — MISRA Rule 10.3 and CERT integer references in both exercises | M01-L01 | ISO C99 §§6.2.5, 6.3.1; MISRA Rule 10.3; BARR-C:2018 §§1.6, 5.3 | `PARTIALLY_COVERED` | Add a focused conversion mental model without expanding into a later numeric lesson. | Casts do not prove range; essential-type analysis is not identical to ISO conversion rules. | `HIGH` |
+| Input validation and reliable API contracts | `docs/C Advanced/session-01.md` — both parser problem statements, rules, interfaces, and expected outputs | M01-L01 | ISO C library contracts; MISRA Dir 4.11 where library calls are used; CERT C as applicable | `COVERED_CORRECTLY` | Preserve general validation and output-contract teaching without parser solutions. | General pointer validation must not be attributed automatically to Dir 4.11. | `HIGH` |
+| Defined, implementation-defined, unspecified, and undefined behavior | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, “undefined and unspecified behaviors” | M01-L01 | ISO C99 §3.4 and Annex J | `PARTIALLY_COVERED` | Complete the four-category taxonomy with small M01 examples. | Current lesson emphasizes undefined and unspecified behavior but does not define all four categories together. | `HIGH` |
+| Scope | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, “variable scope, visibility, and lifetimes” | M01-L01 | ISO C99 §6.2.1 | `COVERED_CORRECTLY` | Preserve precise scope terminology. | “Visibility” is informal engineering language. | `HIGH` |
+| Linkage | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, `static` and `extern` | M01-L01 | ISO C99 §6.2.2 | `COVERED_CORRECTLY` | Preserve declaration/definition and translation-unit examples. | Linkage and scope must not be conflated. | `HIGH` |
+| Storage duration | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, variable lifetimes | M01-L01 | ISO C99 §6.2.4 | `COVERED_CORRECTLY` | Preserve lifetime distinctions and link forward to L02. | Storage duration does not prescribe an executable section. | `HIGH` |
+| `static` and `extern` | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, explicit keyword list | M01-L01 | ISO C99 §§6.2.2, 6.2.4, 6.7.1; BARR-C:2018 §§4.2–4.3, 6.2 | `COVERED_CORRECTLY` | Preserve block/file distinctions and narrow module visibility. | `extern` can participate in declarations and definitions; context matters. | `HIGH` |
+| `register` keyword boundary | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, “not to use register keyword” | M01-L01 | ISO C99 §§6.7.1, 6.5.3.2 | `COVERED_CORRECTLY` | Retain historical-hint and address-taking restriction. | It does not guarantee physical CPU-register placement. | `HIGH` |
+| Compiler diagnostics | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, `-Wall`, `-Werror`; `docs/C Advanced/session-01.md` — strict C99 command flags | M01-L01 | GCC Warning Options and C Dialect Options; selected compiler documentation | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Record exact compiler/version semantics and keep claims bounded. | `-Wall` is not every warning; diagnostics do not prove MISRA compliance. | `HIGH` |
+| Makefile fundamentals | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, “Build Automation Basics (make)”; `docs/C Advanced/session-01.md` — submission requires `all` and `clean` | M01-L01 | GNU Make manual | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Preserve basic target/prerequisite/recipe/compile/link flow and source-required targets. | Avoid CMake and advanced dependency generation in M01. | `HIGH` |
+| Doxygen fundamentals | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1, Doxygen `@brief` and `@param`; `docs/C Advanced/session-01.md` — Doxygen comments required | M01-L01 | Doxygen manual; BARR-C:2018 §2.2 | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Retain `@param[in]`, `@param[out]`, return, and API-contract purpose. | Documentation must agree with actual failure/output behavior. | `HIGH` |
+
+### 4.2 Lesson 2 — Memory Layout & Failure Analysis
+
+Canonical artifact: `02-memory-layout-failure-analysis.md`.
+
+| Concept/topic | Exact DevLinux source and location | Owner | Verification authority | Current coverage | Required action | Known ambiguity or risk | Mapping confidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| ISO C storage duration versus executable sections | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1, `Day 2: Deep Dive into Memory Layout & Failure Analysis`, conceptual memory layout | M01-L02 | ISO C99 §6.2.4; selected object-format/toolchain documentation | `COVERED_CORRECTLY` | Preserve the language/build-artifact separation. | ISO C does not mandate named sections. | `MEDIUM` |
+| `.text` and `.rodata` | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, text; `docs/C Advanced/session-02.md` — Exercise 1 representative text/rodata observations | M01-L02 | GNU Binutils; ELF/toolchain and linker documentation | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Trace section and symbol interpretations to the selected toolchain. | Function code is not a function-pointer object; `const` does not guarantee `.rodata`. | `MEDIUM` |
+| `.data` and `.bss` | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, data/BSS; `docs/C Advanced/session-02.md` — Exercise 1 | M01-L02 | ISO initialization rules; startup, linker, and Binutils documentation | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Preserve image-versus-RAM explanation with explicit implementation context. | Explicit zero initialization does not force BSS placement. | `MEDIUM` |
+| Flash and RAM placement boundaries | `docs/C Advanced/session-02.md` — Exercise 1 memory-segment rules and expected output | M01-L02 | Target memory map, linker, compiler, and startup documentation | `COVERED_CORRECTLY` | Retain common embedded intuition and require build-specific evidence. | Physical Flash/RAM placement is target and linker dependent. | `MEDIUM` |
+| Startup initialization model | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2 memory layout, necessary explanation for data/BSS | M01-L02 | Compiler runtime and target startup documentation; ISO C99 initialization requirements | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Assign the exact startup authority when a target is selected. | Copy/zero sequence and ordering are not universal. | `MEDIUM` |
+| Stack | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, stack and memory failures; `docs/C Advanced/session-02.md` — Exercise 2 | M01-L02 | ISO storage duration; compiler/ABI/target documentation | `COVERED_CORRECTLY` | Preserve conceptual runtime model. | A C implementation need not expose a conventional downward-growing stack. | `MEDIUM` |
+| Stack frames and ABI dependency | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, stack frames and GDB; `docs/C Advanced/session-02.md` — Exercise 2 observations | M01-L02 | Target ABI, compiler optimization, and GDB documentation | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Add explicit ABI/toolchain trace for any physical-frame claim. | Frames may be omitted, transformed, or not have a fixed layout. | `MEDIUM` |
+| Stack overflow | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, stack overflow; `docs/C Advanced/session-02.md` — Exercise 2 | M01-L02 | Target/RTOS stack documentation; MISRA Dir 4.1 and Rule 17.2 for the lab discussion | `COVERED_CORRECTLY` | Preserve causes, bounded observation, and diagnostic caveats. | A runtime proxy cannot prove the true overflow boundary. | `MEDIUM` |
+| Bad pointers and buffer corruption distinctions | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2 practical lab, “Diagnosing Stack Overflow vs. Bad Pointer” | M01-L02 | ISO C pointer/lifetime/bounds semantics; GDB manual | `COVERED_CORRECTLY` | Preserve evidence-based comparison without presenting clues as proof. | Buffer corruption can damage a backtrace and imitate stack failure. | `HIGH` |
+| Heap | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, out-of-memory and leaks; `docs/C Advanced/session-02.md` — Exercise 1 requires `malloc`/`free` | M01-L02 | ISO C99 allocation functions; implementation allocator documentation | `COVERED_CORRECTLY` | Preserve runtime-service and project-policy boundaries. | Heap availability, timing, and organization are implementation dependent. | `MEDIUM` |
+| Allocation failure | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, out-of-memory; `docs/C Advanced/session-02.md` — Exercise 1 | M01-L02 | ISO C99 `malloc` contract; CERT C where applicable | `COVERED_CORRECTLY` | Retain check-before-use and defined failure handling. | `NULL` does not identify the allocator's root cause. | `HIGH` |
+| Memory leak | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, memory leaks; `docs/C Advanced/session-02.md` — Exercise 1 release requirement | M01-L02 | ISO allocation lifetime; CERT MEM31-C as supplement | `COVERED_CORRECTLY` | Preserve lost-ownership and skipped-cleanup definitions. | Process-exit reclamation does not excuse leaks in long-running firmware/services. | `HIGH` |
+| Fragmentation | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, critical allocation failures | M01-L02 | Selected allocator and platform documentation | `COVERED_CORRECTLY` | Preserve a conceptual noncontiguous-free-space example. | Fragmentation behavior depends on allocator strategy and workload. | `MEDIUM` |
+| Memory ownership | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, necessary explanation for leak prevention; `docs/C Advanced/session-02.md` — Exercise 1 cleanup | M01-L02 | ISO allocation contract; CERT MEM30-C/MEM31-C as supplements | `COVERED_CORRECTLY` | Retain owner/release-path model at introductory depth. | Setting one pointer to null does not repair dangling aliases. | `HIGH` |
+| Static allocation and fixed-pool boundary | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, memory-failure context; fixed pools appear in later memory-optimization work | Boundary: M01-L02 → M02 | Project allocation policy; later module sources | `OUT_OF_SCOPE` | Mention static alternatives briefly; defer pool design and allocator theory to M02. | Do not use a pool lesson to expand M01. | `LOW` |
+| Hello World binary-size baseline observation | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, Practical Labs | M01-L02 | GCC documentation and GNU Binutils `size` documentation | `MISSING` | Include a small guided lesson demonstration: compile a minimal Hello World program; run GNU `size` on the exact binary; record the build command and relevant output; explain that `text`, `data`, and `bss` are build-specific summaries. | This roadmap activity has no Session 01–02 exercise identity and must not create a fifth canonical exercise or solution. | `HIGH` |
+| GNU `size` | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, “Introduce size”; `docs/C Advanced/session-02.md` — Exercise 1 required verification | M01-L02 | GNU Binutils `size` documentation | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Preserve Berkeley-summary caveat and record exact command/binary. | Columns are summaries, not necessarily literal section names. | `HIGH` |
+| GNU `nm` | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, “nm (or objdump)”; `docs/C Advanced/session-02.md` — Exercise 1 required verification | M01-L02 | GNU Binutils `nm` documentation | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Preserve build-specific symbol interpretation. | Symbol letters and availability depend on object format, stripping, and optimization. | `HIGH` |
+| GNU `objdump` | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, “nm (or objdump)” | M01-L02 | GNU Binutils `objdump` documentation | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Keep `objdump -h` as section-header evidence, not a source requirement replacing `size`/`nm`. | Input sections do not alone prove final physical target placement. | `MEDIUM` |
+| `readelf` and linker map | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2 binary inspection, bounded supplementary evidence needed for accurate ELF/link placement | M01-L02 boundary | GNU Binutils `readelf`, linker-map, ELF, and selected linker documentation | `MISSING` | Add only a concise optional evidence boundary during refactor. | ELF is not universal; full linker-script authoring is out of scope. | `LOW` |
+| GDB `run`, `backtrace`, `frame`, and `info locals` | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, “gdb Stack Commands” | M01-L02 | GNU GDB manual | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Preserve basic workflow and add exact official references. | Optimized/corrupted frames and missing debug data can limit evidence. | `HIGH` |
+| Optimization levels | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, `-O1`, `-O2`, `-O3`, `-Os` | M01-L02 | GCC Optimize Options; selected compiler documentation | `COVERED_BUT_NEEDS_SOURCE_TRACE` | Retain intent labels and require target measurement. | A higher option number is not universally faster or smaller. | `MEDIUM` |
+| Optimization-sensitive undefined behavior | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 1 behavior risks plus Week 1 Day 2 optimization comparison | M01-L02, linked to M01-L01 | ISO C behavior rules; GCC optimization documentation | `PARTIALLY_COVERED` | Explain only that optimization may expose existing UB; do not teach optimizer internals. | Optimization does not cause UB in an otherwise defined program. | `MEDIUM` |
+| Failure-analysis workflow | `docs/C Advanced/C Advacne DevLinux.txt` — Week 1 Day 2, failure analysis, GDB, and practical labs | M01-L02 | GDB, compiler/toolchain, target, and runtime documentation as applicable | `COVERED_CORRECTLY` | Preserve symptom → hypothesis → evidence → tool → root cause → correction. | Diagnostic clues and one-run measurements are not universal proofs. | `HIGH` |
+
+## 5. Exercise Provenance Inventory
+
+The inventory is locked to exactly four DevLinux source identities. This table maps current artifacts; it does not approve exercise restoration or solution changes.
+
+| Canonical ID | Source and original number | Original title | Primary learning objective | Required interface | Expected behavior and expected-output status | Submission structure | Current `exercises.md` alignment | Current solution mapping | Known source inconsistency | Required correction status | Mapping confidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S01-E01 | `docs/C Advanced/session-01.md`, `Exercise_1 [build]` | Safe Network Address Parser — IPv4 to `uint32_t` | Validate dotted-decimal external text and produce the documented numeric address. | `int8_t parse_ipv4(const char *ip_str, uint32_t *p_ip_out);` | Success is `0`; invalid input is negative; `192.168.1.50` yields `0xC0A80132`. `SOURCE_DEFINED`, with three explicit sample cases. | `Exercise_1/main.c`, `Makefile` with `all`/`clean`, optional `*.h` | `PARTIALLY_ALIGNED`: identity/interface/core behavior preserved; technical clarifications and added validation are not yet separated under architecture labels. | `solutions/session-01-exercise-01-ipv4-parser/` | Absolute storage/CPU claims; Dir 4.11/4.14 scope; added tests versus source-required cases. | `RECORDED — DEFERRED_TO_EXERCISE_GATE` | `HIGH` |
+| S01-E02 | `docs/C Advanced/session-01.md`, `Exercise_2 [build]` | Safe Network Address Parser — MAC Address to `uint8_t[6]` | Validate exactly six hexadecimal byte fields and write the caller's six-byte result. | `int8_t parse_mac(const char *mac_str, uint8_t *p_mac_out);` | Success is `0`; invalid input is negative; source lists colon/hyphen, case, field-count, character, and null-input examples. `SOURCE_DEFINED`. | `Exercise_2/main.c`, `Makefile` with `all`/`clean`, optional `*.h` | `PARTIALLY_ALIGNED`: identity/interface/core cases preserved; delimiter and added validation clarifications require separate labels. | `solutions/session-01-exercise-02-mac-parser/` | Dir 4.14 is not in the supplied MISRA PDF; some cited rules depend on implementation choices not required by the exercise. | `RECORDED — DEFERRED_TO_EXERCISE_GATE` | `HIGH` |
+| S02-E01 | `docs/C Advanced/session-02.md`, `Exercise_1 [build]` | Memory Segment Analyzer — Map, Measure, and Verify | Observe representative objects and verify one binary using required `size` and `nm` evidence. | `void print_memory_map(void);` | Addresses vary; source requires labelled observations, magnitude output, `size`, and `nm`. `ILLUSTRATIVE_AND_BUILD_DEPENDENT`; the sample is not an exact portable result. | `Exercise_1/main.c`, `Makefile` with `all`/`clean`, optional `*.h`; append required tool output | `PARTIALLY_ALIGNED`: source identity/tools preserved and technical corrections integrated, but corrections/additional validation are not separately labelled. | `solutions/session-02-exercise-01-memory-segment-analyzer/` | Function pointer presented as `.text`; function `%p` portability; unrelated-address “bytes”; Rule 11.6 misuse; `size`/`nm` overinterpretation. | `RECORDED — DEFERRED_TO_EXERCISE_GATE` | `HIGH` |
+| S02-E02 | `docs/C Advanced/session-02.md`, `Exercise_2 [build]` | Stack Depth Monitor — Measure Stack Usage & Detect Overflow Risk | Observe bounded recursive call depth and stop when a build-specific address-magnitude guard is reached. | `int8_t recurse_with_monitor(uint32_t current_depth, uint32_t max_depth, const uintptr_t stack_base_addr, uint32_t stack_limit_bytes);` | Return `0` at requested depth or `-1` at guard; addresses/depth are illustrative. `ILLUSTRATIVE_AND_BUILD_DEPENDENT`; the displayed 64-byte steps are not guaranteed. | `Exercise_2/main.c`, `Makefile` with `all`/`clean`, optional `*.h` | `PARTIALLY_ALIGNED`: prototype/recursive intent preserved and direction assumption corrected; source correction and repository validation need separate labels. | `solutions/session-02-exercise-02-stack-depth-monitor/` | Suggested subtraction assumes downward growth; proxy labelled bytes; safe-before-overflow and Rule 17.2 claims overstate what a guard proves. | `RECORDED — DEFERRED_TO_EXERCISE_GATE` | `HIGH` |
+
+## 6. Preliminary Correction Register
+
+### 6.1 Recorded correction candidates
+
+| Correction ID | Affected artifact or source | Original claim or conflict, paraphrased | Issue type | Verification authority | Intended future handling | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| M01-CR-001 | `session-01.md`; current `exercises.md` | MISRA Directive 4.14 is cited, but that identifier is absent from the supplied MISRA C:2012 PDF. | source-trace gap | Applicable MISRA edition, amendment, or addendum | Do not reuse the identifier until the exact authoritative source is available and verified. | `RECORDED` |
+| M01-CR-002 | `session-01.md`; current `exercises.md` | Directive 4.11 is used as general null/API-input validation although its stated scope is values passed to library functions. | technical inaccuracy | MISRA C:2012 Dir 4.11; ISO/library contract | Limit Dir 4.11 to applicable library calls; retain general API validation under its proper contract/security authority. | `RECORDED` |
+| M01-CR-003 | `session-01.md`, `session-02.md`, current exercises | Dynamic allocation is described as absolutely forbidden and a guarded lab as effectively acceptable, without the required-guideline/deviation distinction. | unclear wording | MISRA C:2012 Dir 4.12 and §§5.4, 6.2.2 | State that the lab intentionally conflicts with the guideline; a required guideline needs a formal deviation in a compliance claim. | `RECORDED` |
+| M01-CR-004 | `session-02.md`, Exercise 1 | Rule 11.6 is associated with casting `malloc()`'s `void *` result to an object pointer, but the rule concerns casts between `void *` and arithmetic types. | technical inaccuracy | MISRA C:2012 Rule 11.6; ISO C99 §6.3.2.3 | Remove the misapplication during exercise restoration; preserve correct C object-pointer conversion teaching. | `RECORDED` |
+| M01-CR-005 | `session-01.md`, Exercise 1 | Text storage/comparison is asserted to map to one exact instruction and to crash a network at scale. | implementation dependency | Compiler output, target benchmark, workload evidence | Reframe as a possible representation/performance trade-off requiring measurement. | `RECORDED` |
+| M01-CR-006 | `session-02.md`, Exercise 1 | A function pointer is labelled as `.text`, and the expected output prints a function address with `%p`. | technical inaccuracy | ISO C99 function/object pointer rules and `fprintf` `%p`; Binutils documentation | Separate function code/symbol evidence from any stored function-pointer object; use `nm`/`objdump` for code symbols. | `RECORDED` |
+| M01-CR-007 | `session-02.md`, Exercise 1 | Differences between unrelated objects are called pointer arithmetic and exact segment distances in bytes. | technical inaccuracy | ISO C99 §§6.3.2.3, 6.5.6; implementation documentation | Permit only explicitly scoped integer-address observations on a supporting implementation; do not claim portable distance or ordering. | `RECORDED` |
+| M01-CR-008 | DevLinux Week 1 examples; supplementary notes | `const` is treated as a guarantee of `.rodata` or Flash placement. | implementation dependency | ISO C qualification rules; compiler/linker/target evidence | Teach type semantics first and mark placement as a verified build property. | `RECORDED` |
+| M01-CR-009 | `session-02.md`; supplementary notes | BSS is described as costing zero Flash and named sections as fixed physical locations. | implementation dependency | ISO initialization; startup/linker/Binutils/target documentation | Distinguish equivalent zero payload from all image metadata and preserve the runtime-RAM requirement. | `RECORDED` |
+| M01-CR-010 | `session-02.md`, Exercise 2 | Suggested arithmetic assumes downward stack growth and the example implies fixed 64-byte frames. | implementation dependency | Target ABI, compiler, optimization, and runtime evidence | Use direction-independent magnitude language and identify every result as one-build/run evidence. | `RECORDED` |
+| M01-CR-011 | `session-02.md`, Exercise 2 | The recursion guard is described as stopping safely before a real overflow and making recursion controlled/safe under Rule 17.2. | technical inaccuracy | MISRA C:2012 Rule 17.2; target stack analysis | State that the guard reduces experimental risk but neither proves the real limit nor makes recursion compliant. | `RECORDED` |
+| M01-CR-012 | DevLinux Week 1 Day 2; `session-02.md`, Exercise 1 | `size` columns and `nm` symbols are presented as exact universal memory segments or physical placement. | implementation dependency | GNU Binutils manuals; ELF/object format; linker map and target documentation | Keep required `size`/`nm`, distinguish summaries/symbol classes, and add optional detailed evidence where appropriate. | `RECORDED` |
+| M01-CR-013 | DevLinux Week 1 Day 2; current Lesson 2 | Optimization levels may be read as a universal size/speed ranking or as preserving identical debugger/frame observations. | implementation dependency | GCC Optimize Options; selected compiler/target measurements | Preserve intent labels and require reproducible measurements for the chosen compiler and target. | `RECORDED` |
+| M01-CR-014 | Sessions 01–02; current Lesson 1 | Strict warnings, `cppcheck`, or `clang-tidy` may be interpreted as MISRA compliance or correctness proof. | technical inaccuracy | MISRA C:2012 §§5.2–5.5; official compiler/analyzer documentation | Separate diagnostic evidence, configured rule coverage, functional correctness, and compliance process. | `RECORDED` |
+| M01-CR-015 | `session-02.md`, both exercises | `uintptr_t` is treated as universally available and as a portable stack/segment distance type. | implementation dependency | ISO C99 §7.18.1.4 and pointer-conversion rules | State the optional-type assumption and restrict conclusions to converted object-pointer values in the recorded environment. | `RECORDED` |
+| M01-CR-016 | `Full-Embedded-C-Notes.md` | Several storage/placement descriptions present common stack, ROM/Flash, and named-section conventions without consistent implementation qualifiers. | technical inaccuracy | ISO C plus selected compiler/linker/ABI/target documentation | Use only for discovery; independently rewrite and verify any reused idea. | `RECORDED` |
+| M01-CR-017 | Sessions 01–02 BARR-C shorthand | “Fixed-width integers” can be read as mandatory for every integer rather than when width matters; style areas are cited without section trace. | unclear wording | BARR-C:2018 §§1.1, 1.3–1.6, 2.2, 4, 5.2–5.3, 6.2, 7, 8 | Apply each BARR-C practice only in its documented scope and cite the relevant section. | `RECORDED` |
+| M01-CR-018 | Sessions 01–02 | Learners are directed to CERT-C PDFs under `C_Books/`, but that referenced repository location is not present in the inspected source tree. | source-trace gap | Official SEI CERT C source or an explicitly supplied reference | Replace the stale location only in the future module artifact and verify every retained CERT identifier. | `RECORDED` |
+| M01-CR-019 | Current `interview.md`, Q1 | One compiler-warning sentence contains corrupted wording (“ongit e compiler”). | unclear wording | Current artifact and compiler-evidence policy | Correct only at the future interview audit gate. | `RECORDED` |
+
+### 6.2 MISRA identifier audit for current M01 sources
+
+| Identifier cited in Session 01–02/current M01 | Supplied MISRA PDF result | Category | M01 applicability result |
+| --- | --- | --- | --- |
+| Directive 4.1 | Exists | Required | Relevant to minimizing runtime failures; a stack proxy is evidence, not proof. |
+| Directive 4.11 | Exists | Required | Applies to validity of values passed to library functions; not a general null-pointer rule. |
+| Directive 4.12 | Exists | Required | Directly relevant to dynamic allocation; a formal deviation is required when claiming compliance with a violating design. |
+| Directive 4.14 | Not found in supplied PDF | Unverified | Do not cite until the applicable authoritative edition/addendum is established. |
+| Rule 9.1 | Exists | Mandatory | Relevant to reading automatic objects only after a value has been set. |
+| Rule 10.3 | Exists | Required | Potentially relevant to narrowing/essential-type assignment; application requires the actual expression and destination types. |
+| Rule 11.4 | Exists | Advisory | Relevant to object-pointer/integer conversion in the address-observation labs. |
+| Rule 11.6 | Exists | Required | Not a rule about ordinary C conversion from `void *` to an object pointer; the Session 02 explanation is mismatched. |
+| Rule 14.2 | Exists | Required | Relevant only if the submitted parser uses a `for` loop subject to the rule. |
+| Rule 15.5 | Exists | Advisory | Relevant to exit-structure review; it does not make early error returns ISO C defects. |
+| Rule 17.2 | Exists | Required | Directly conflicts with the required recursive lab; a guard does not create compliance. |
+| Rule 21.7 | Exists | Required | Directly relevant to the prohibited `atoi` family. |
+| Rule 22.1 | Exists | Required | Relevant to explicit release of dynamically obtained standard-library resources. |
+
+The supplied MISRA PDF distinguishes rules from directives in §§6–8 and defines Mandatory, Required, and Advisory in §6.2. Mandatory guidelines do not permit deviation; Required guidelines require a formal deviation when not followed in a compliance claim; Advisory non-compliance must still be handled under the project's documented process. This mapping is not a complete compliance assessment.
+
+### 6.3 BARR-C area audit for M01
+
+| M01 area | BARR-C:2018 location | Mapping result |
+| --- | --- | --- |
+| C baseline and extensions | §1.1 | Confirms C99 and controlled compiler-extension use. |
+| Braces, parentheses, and casts | §§1.3, 1.4, 1.6 | Supports explicit control flow and reviewable conversion rationale. |
+| Comments and Doxygen-suitable documentation | §2.2 | Supports documented modules/functions and assumptions. |
+| Modules and headers | §§4.1–4.3 | Supports narrow interfaces, include guards, internal functions, and source/header discipline. |
+| Fixed-width and signed/unsigned integers | §§5.2–5.3 | Fixed width is required when representation width matters; it does not replace conversion analysis. |
+| Function practices | §6.2 | Supports prototypes, private `static` functions, named parameters, and reviewable function structure. |
+| Pointer naming and initialization | §§7.1–7.2 | Confirms `p_`/`pp_` naming conventions and initialization before use. |
+| Conditionals and loops | §§8.2, 8.4 | Supports explicit, maintainable decision and iteration structure. |
+
+## 7. Scope Boundaries
+
+| M01 owns | Boundary or later owner |
+| --- | --- |
+| C99 baseline, introductory MISRA/BARR roles, reliable API contracts, basic conversions, behavior taxonomy, scope/linkage/storage duration, basic diagnostics, Make, and Doxygen | Advanced macros and variadic functions belong to M04. |
+| Conceptual memory regions, startup intuition, stack/heap failures, allocation ownership, basic Binutils/GDB, and optimization evidence | Full linker-script authoring remains later/toolchain-specific scope. |
+| Introductory compliance/deviation concepts needed to interpret Week 1 references | Full MISRA compliance implementation, compliance management, and certification remain project/process scope. |
+| Basic object/address observations needed by Session 02 | Advanced structure layout, packing, alignment, and representation belong to M02. |
+| Basic pointer validation, lifetime, and null/bounds discipline | Advanced declarations, pointer arrays, function pointers, and dispatch tables belong to M03. |
+| Running the source-required `cppcheck` and `clang-tidy` checks and interpreting bounded evidence | Deep static-analysis workflows and broad tool qualification belong to M09. |
+| Basic Make targets and compile/link dependencies | Advanced CMake, TDD, unit-test frameworks, and CI belong to M07. |
+| Brief mention of static allocation as an alternative | Fixed-pool design and allocator architecture belong to M02; allocator internals are not M01 scope. |
+
+Brief forward references may establish these boundaries but must not introduce lesson-scale later-module theory.
+
+## 8. Current Artifact Assessment
+
+| Artifact | Current state | Strongest existing content | Main gap | Expected future action | Editable at this gate? |
+| --- | --- | --- | --- | --- | --- |
+| `README.md` | `REFACTORING`; `LESSON_1_AUTHORING`; `HUMAN_REVIEW_PENDING` | Approved source map, correction register, four-exercise provenance inventory, and approved two-lesson outline | Lesson 1 authoring is complete but pending human review. | Record the Lesson 1 review outcome; do not advance another artifact automatically. | Yes — status/audit record only |
+| Lesson 1 | `DRAFT`; `HUMAN_REVIEW_PENDING` | Source-backed C99 baseline, validation, scope/linkage/duration, diagnostics, Make, and Doxygen aligned to the approved outline | Human review must confirm accuracy, teaching quality, scope, and correction handling. | Human review, correction, and explicit approval. | Yes — Lesson 1 only |
+| Lesson 2 | `LOCKED` | Strong language-versus-toolchain boundary, startup intuition, failure analysis, Binutils/GDB, and optimization caveats | Lesson 1 must be explicitly approved before Lesson 2 authoring is authorized. | Remain locked pending the required Lesson 1 approval and explicit Lesson 2 authorization. | No |
+| `exercises.md` | `LOCKED` | Exactly four source identities with substantial technical corrections | Exercise restoration follows approval of both lessons. | Remain locked. | No |
+| S01-E01 solution | `LOCKED` | Exact interface, bounded direct parser, source success value, and invalid-input coverage | Solution revalidation follows the approved exercise artifact. | Remain locked. | No |
+| S01-E02 solution | `LOCKED` | Exact interface, six-byte bounded output, both delimiter/case forms | Solution revalidation follows the approved exercise artifact. | Remain locked. | No |
+| S02-E01 solution | `LOCKED` | Avoids function-pointer `%p`, distinguishes address magnitudes, retains required `size`/`nm` evidence | Solution revalidation follows the approved exercise artifact. | Remain locked. | No |
+| S02-E02 solution | `LOCKED` | Preserves prototype, direction-independent magnitude, bounded recursion, and Rule 17.2 caveat | Solution revalidation follows the approved exercise artifact. | Remain locked. | No |
+| `interview.md` | `LOCKED` | Twelve focused questions spanning both lessons with mostly strong implementation caveats | Interview audit follows the approved lessons, exercises, and solutions. | Remain locked. | No |
+
+## 9. Approved Source-Mapping Gate Record
+
+The `SOURCE_MAPPING` gate was human-approved before `LESSON_OUTLINE` began. The criteria below are retained as historical review evidence.
+
+`SOURCE_MAPPING` may be approved only when:
+
+- every DevLinux Week 1 Day 1 and Day 2 concept is mapped to its owning lesson or an explicit boundary;
+- exactly four Session 01–02 exercise identities are mapped without rename, merge, split, omission, replacement, or reordering;
+- an appropriate official verification source is assigned to each major claim family;
+- current coverage gaps and implementation dependencies are visible;
+- correction candidates and source inconsistencies are recorded without editing source files;
+- no lesson, exercise, solution, interview, roadmap, session, supplementary note, or reference PDF has changed in this gate; and
+- the user explicitly approves progression to `LESSON_OUTLINE`.
+
+Gate 1 status: `APPROVED`.
+The current active gate is `LESSON_OUTLINE`.
+
+## 10. M01 Lesson Refactoring Outline
+
+This Gate 2 outline fixes the future structure of both M01 lessons without authoring either lesson. Planned depth indicates pedagogical treatment, not a word-count target. Current-content actions apply to the existing lesson material and favor preservation over unnecessary churn.
+
+### 10.1 Lesson profiles
+
+| Lesson | Canonical artifact | Profile | Primary teaching workflow | Appropriate verification workflow |
+| --- | --- | --- | --- | --- |
+| M01-L01 — High-Reliability Coding Standards | `01-high-reliability-coding-standards.md` | Language foundation; reliability policy; coding standards; interface-contract reasoning; compiler, build, and documentation fundamentals | definition → problem being solved → mental model → why it matters → when to use → limitations → Embedded/Linux application → focused example → review or verification method → takeaway | API contract → language rule → coding-standard guidance → compiler diagnostic → static-analysis limitation → human review → documented deviation where applicable. A generic runtime-debugging chapter is not required. |
+| M01-L02 — Memory Layout & Failure Analysis | `02-memory-layout-failure-analysis.md` | Memory semantics; executable and target-memory interpretation; runtime failure analysis; tool-assisted evidence | symptom → hypothesis → evidence → tool → root cause → correction | Proportionate Binutils, ELF, linker/startup, GDB, compiler, and controlled runtime evidence, with every result scoped to the recorded build and environment. |
+
+Neither historical `APPROVED` lesson status authorizes content changes in this gate. Both lessons remain reopened under module `REFACTORING` until their later authoring and review gates are explicitly approved.
+
+### 10.2 Lesson interaction and non-duplication rules
+
+- M01-L01 owns ISO C behavior categories, integer-type and conversion foundations, scope, linkage, storage duration, coding-standard roles, diagnostics, basic Make, Doxygen, and interface-contract reasoning.
+- M01-L02 may refer to storage duration but links back to M01-L01 instead of reteaching the complete language model.
+- M01-L02 owns executable sections, physical-placement caveats, the startup model, runtime memory observations, stack and heap failures, Binutils, GDB, and optimization evidence.
+- `exercises.md` retains the four complete DevLinux assignments. Lessons may prepare the learner for them but must not copy their full specifications.
+- Complete implementations remain in `solutions/`; neither lesson may implement the IPv4 parser, MAC parser, Memory Segment Analyzer, or Stack Depth Monitor.
+- Interview questions, expected answers, and answer structures remain in `interview.md`; lessons must not adopt interview-answer formatting.
+- M01-L01 introduces MISRA compliance and deviation only to the depth needed to interpret M01 sources. Full compliance management and certification remain out of scope.
+- Advanced structure layout, packing, alignment, and object representation belong to M02.
+- Advanced pointer declarations, pointer arrays, function pointers, callbacks, and dispatch tables belong to M03.
+- Advanced macros and variadic functions belong to M04.
+- Advanced CMake, TDD, unit-test frameworks, and CI belong to M07.
+- Deep static-analysis workflows and broad tool qualification belong to M09.
+- Full linker-script authoring is outside M01. M01 may identify linker evidence and boundaries without teaching linker-script syntax.
+
+### 10.3 Detailed outline — M01-L01 High-Reliability Coding Standards
+
+| Section ID | Planned section title | Teaching objective | Key concepts | Why this section exists | DevLinux source | Official verification authority | Current-content action | Relevant correction IDs | Example or evidence plan | Common mistake or risk to address | Scope boundary | Planned depth |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| L01-01 | Purpose, scope, and learning model | Establish high-reliability C as explicit assumptions, contracts, and reviewable evidence; define lesson ownership. | Reliability purpose; audience; Session 01 relationship; artifact separation | Gives newcomers a map before standards and language details while preventing parser-solution leakage. | Detailed roadmap — Week 1 Day 1; `session-01.md` — both parser scenarios | Architecture §§6–8; ISO C99 scope; applicable project requirements | `PRESERVE_AND_RESTRUCTURE` | None | Short responsibility map; no parser algorithm | Treating a standards checklist as a substitute for a defined API contract | Exercises and solutions remain separate artifacts | `INTRODUCTORY` |
+| L01-02 | C standards and the C99 baseline | Distinguish language revisions, compiler modes, hosted/freestanding context, and extensions. | C89/C90, C99, C11 orientation; C99 baseline; hosted/freestanding; dialect versus extension | DevLinux names several revisions but requires a stable C99 build baseline. | Detailed roadmap — Week 1 Day 1, historical standards and ISO C99; Session 01 strict flags | ISO/IEC 9899:1999 and public WG14 material; GCC C Dialect Options | `EXPAND` | None | Small `-std=c99` command and one clearly labelled later-standard rejection example | Assuming compiler default mode equals the project language contract | Later-standard features remain module-scoped exceptions | `CORE` |
+| L01-03 | ISO C, MISRA C, and BARR-C | Separate language semantics, restricted safety guidance, and maintainability style. | Authority roles; project policy; selected-guidance boundary | Prevents style rules or compliance guidance from being presented as ISO semantics. | Detailed roadmap — Week 1 Day 1; Session 01 coding-standard tables | ISO C99; MISRA C:2012 §§1, 5–8; BARR-C:2018 introduction and §1 | `EXPAND` | None | Three-column authority comparison and one braced-control-flow illustration | Claiming MISRA or BARR-C replaces ISO C or proves project compliance | No full standards catalogue | `CORE` |
+| L01-04 | MISRA guideline model | Teach enough of the guideline and compliance model to interpret M01 references correctly. | Rule versus directive; Mandatory, Required, Advisory; decidable/undecidable when useful; translation-unit/system scope; compliance matrix; diagnostic; violation; deviation | Session tables use MISRA identifiers and categories that require precise interpretation. | `session-01.md` — both Coding Standards Reference tables; `session-02.md` — applicable MISRA tables | MISRA C:2012 §§5.3–5.5 and §§6.1–6.6 | `EXPAND` | M01-CR-001, M01-CR-002, M01-CR-003, M01-CR-014 | Compact classification table and a diagnostic-to-review decision example | Reusing unverified Directive 4.14; equating no tool message with compliance | Introductory model only; full compliance management is out of scope | `DETAILED` |
+| L01-05 | BARR-C practices relevant to M01 | Connect selected maintainability rules to their concrete engineering purpose. | C99 baseline; braces; parentheses; casts; modules/headers; naming; initialization; fixed-width and signedness guidance; functions; conditions; loops; comments | DevLinux requires BARR-C style, but shorthand must be traced and applied within scope. | Detailed roadmap — Week 1 Day 1; Session 01 BARR-C requirements | BARR-C:2018 §§1.1, 1.3–1.6, 2.2, 4, 5.2–5.3, 6.2, 7, 8 | `PRESERVE_AND_RESTRUCTURE` | M01-CR-017 | Concern-to-practice mapping retained and tied to exact sections | Treating fixed-width types as mandatory for every integer or style as semantics | Do not reproduce the full BARR-C standard | `CORE` |
+| L01-06 | Reliable API contracts and input validation | Teach validation order and observable caller guarantees without implementing assigned parsers. | Preconditions; pointer validity; syntax and range; result contract; output behavior; units; ownership when applicable | Session 01 is built around externally supplied text and caller-provided outputs. | `session-01.md` — Exercise 1 and Exercise 2 problem statements, interfaces, and expected behavior | ISO C99 library and pointer contracts; MISRA C:2012 Dir 4.11 in its library-call scope; official CERT C where applicable | `PRESERVE_AND_RESTRUCTURE` | M01-CR-002 | Unrelated device-configuration API and a generic `strtol()` boundary example | Attributing every null check to Dir 4.11; converting before validating full syntax and range | No IPv4 or MAC parsing algorithm | `DETAILED` |
+| L01-07 | Integer types and conversion discipline | Select a type from the contract and prove conversions before narrowing. | Native integers; exact-width typedefs; optional availability; `size_t`; signed/unsigned conversion; narrowing; range proof; cast limitations | Fixed-width interfaces are central to Session 01, while source performance claims need qualification. | Detailed roadmap — Week 1 Day 1 fixed-width types; Session 01 interfaces and Rule 10.3 references | ISO C99 §§6.2.5, 6.3.1 and §7.18; BARR-C:2018 §§5.2–5.3 | `EXPAND` | M01-CR-005, M01-CR-017 | Small sensor-range conversion; evidence note that performance requires measurement | Believing a cast validates range or an exact-width type guarantees speed/byte order | Detailed numerical processing and serialization belong to M08 | `DETAILED` |
+| L01-08 | C behavior taxonomy | Classify language outcomes before proposing a correction. | Defined; implementation-defined; unspecified; undefined; constraint violation and required diagnostic; compiler extension | DevLinux explicitly requires undefined and unspecified behavior, while reliable review needs the complete bounded taxonomy. | Detailed roadmap — Week 1 Day 1, undefined and unspecified behavior | ISO C99 §3.4, §5.1.1.3, Annex J, and implementation documentation for extensions | `EXPAND` | None | Independent micro-examples for each category; no exercise logic | Confusing unspecified evaluation order with side effects that violate C99 sequence-point requirements; assuming diagnostics are required for all UB | Full sequencing and numeric theory remain later scope | `DETAILED` |
+| L01-09 | Scope, linkage, storage duration, and lifetime | Separate name usability, entity identity, storage existence, and object lifetime. | Scope; linkage; storage duration; lifetime; automatic/static locals; internal/external linkage; declaration/definition; `static`; `extern`; historical `register` boundary | DevLinux groups visibility and lifetime terms that must be taught precisely for multi-file code. | Detailed roadmap — Week 1 Day 1, scope, visibility, lifetime, `static`, `extern`, `register` | ISO C99 §§6.2.1–6.2.4 and §6.7.1; BARR-C:2018 §§4.2–4.3 and 6.2 | `PRESERVE_AND_RESTRUCTURE` | None | Small header/source declaration fragments and one static-local example | Conflating scope with linkage; claiming storage duration selects an ELF section; treating `register` as physical placement | Executable sections are owned by L02 | `DETAILED` |
+| L01-10 | Compiler dialects and diagnostics | Establish diagnostics as scoped evidence under a recorded compiler configuration. | `-std=c99`; `-Wall`; `-Wextra`; `-Wpedantic`; `-Werror`; warning groups; version dependence; static-analysis limits | Sessions require strict builds and analyzer runs, but those results are not correctness or compliance proof. | Detailed roadmap — Week 1 Day 1 compiler options; Session 01 common flags and tool requirements | GCC C Dialect Options and Warning Options; selected compiler and analyzer manuals; MISRA C:2012 §5.3 | `PRESERVE_AND_RESTRUCTURE` | M01-CR-014 | One intentionally diagnosable fragment and recorded compiler command | Assuming `-Wall` is every warning or flag order prevents every `-Wno-*` override | Deep analyzer workflows belong to M09 | `CORE` |
+| L01-11 | Makefile fundamentals | Explain a reproducible compile/link dependency graph for early labs. | Target; prerequisite; recipe; compilation versus linking; `all`; `clean`; optional source-supported docs target | DevLinux requires Make for later labs and explicit submission targets. | Detailed roadmap — Week 1 Day 1 Build Automation Basics; Session 01 submission trees | GNU Make manual — rule syntax, prerequisites, recipes, phony targets, and automatic variables | `PRESERVE` | None | Compact two-object Makefile with explicit header dependencies | Treating Make as a shell-script alias; confusing compilation with linking | No advanced Make, CMake, CI, dependency generation, or TDD | `PRACTICAL_DEMONSTRATION` |
+| L01-12 | Doxygen and API documentation | Make valid inputs, parameter direction, return behavior, and failures reviewable. | `@brief`; `@param[in]`; `@param[out]`; `@return`; units; failure/output consistency | Session 01 requires Doxygen and public contracts. | Detailed roadmap — Week 1 Day 1 Doxygen; Session 01 documentation requirements | Doxygen manual — documenting code and commands; BARR-C:2018 §2.2 | `PRESERVE` | None | Unrelated public API comment paired with its declaration | Documentation contradicting implementation or claiming ownership that the API does not transfer | No broad documentation-generation framework | `PRACTICAL_DEMONSTRATION` |
+| L01-13 | Reliability review workflow | Integrate contract, language, guidance, diagnostics, human judgment, and deviations in the correct order. | Contract → type/range analysis → behavior classification → guidance → tool evidence → human review → deviation/documentation | Converts scattered current failure-pattern advice into a repeatable design-review workflow rather than runtime debugging. | Session 01 rules, tool checks, and expected behavior | ISO C99; MISRA C:2012 §§5.3–5.5; BARR-C:2018; official compiler/analyzer documentation | `MOVE_WITHIN_LESSON` | M01-CR-014 | Review one small unrelated API defect from contract through resolution | Beginning with a suppression or cast instead of the root contract | Not a generic runtime-debugging chapter | `CORE` |
+| L01-14 | Embedded and Linux applications | Transfer the baseline to realistic but bounded engineering boundaries. | Protocol input; device-control API; sensor conversion; driver-facing contract; reproducible build | Helps newcomers connect rules to work without introducing later module internals. | Session 01 embedded network scenarios; detailed roadmap Day 1 applications | ISO C99 and the relevant official API/compiler documentation for each example | `EXPAND` | M01-CR-005 | Short scenario matrix; no full parser or driver | Turning an illustrative performance or target statement into a universal guarantee | No Linux-driver internals, MMIO, networking stack, or concurrency | `BOUNDED_REFERENCE` |
+| L01-15 | Key takeaways and references | Close with decisions the learner can apply and claim-level authority routes. | Baseline; contracts; conversions; behavior; name/lifetime model; diagnostics; build; documentation | Provides a concise refresher without duplicating the lesson. | All approved Day 1 and Session 01 sources | Authorities allocated in Section 10.8 below | `PRESERVE_AND_RESTRUCTURE` | M01-CR-018 | No new example; source-provenance checklist | Raw link lists without claim ownership; stale `C_Books/` path | Further reading stays concise and authoritative | `BOUNDED_REFERENCE` |
+
+### 10.4 Detailed outline — M01-L02 Memory Layout & Failure Analysis
+
+| Section ID | Planned section title | Teaching objective | Key concepts | Why this section exists | DevLinux source | Official verification authority | Current-content action | Relevant correction IDs | Example or evidence plan | Common mistake or risk to address | Scope boundary | Planned depth |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| L02-01 | Purpose, scope, and three-layer memory model | Separate ISO C object semantics, executable/object-file sections, and physical target placement before using memory-map vocabulary. | Three-layer model; implementation context; lesson ownership | Prevents common toolchain conventions from being stated as universal C. | Detailed roadmap — Week 1 Day 2 conceptual memory layout; Session 02 Exercise 1 | ISO C99 storage and initialization semantics; selected object-format, compiler, linker, and target documentation | `PRESERVE_AND_RESTRUCTURE` | M01-CR-008, M01-CR-009, M01-CR-016 | Three-layer diagram and classification of representative declarations | Claiming `const` always means Flash or zero initialization always means `.bss` | Advanced object representation and layout belong to M02 | `CORE` |
+| L02-02 | Common embedded startup model | Explain how a selected runtime commonly establishes initialized and zero-initialized objects before `main`. | Reset; runtime entry; initialized-data setup; zeroing support; platform initialization; `main` | Connects source initializers to observed RAM state and pre-`main` failures. | Detailed roadmap — Week 1 Day 2 memory layout; Session 02 Exercise 1 | Selected compiler/runtime startup documentation; target documentation; ISO C99 initialization requirements | `PRESERVE` | M01-CR-009 | Bounded startup-flow diagram with explicit implementation label | Presenting one startup order as an ISO C requirement | No startup assembly, linker-script syntax, or bootloader design | `CORE` |
+| L02-03 | `.text`, `.rodata`, `.data`, and `.bss` | Explain common purpose, image/RAM cost, and inspection evidence for each named region. | Code symbols; read-only objects; nonzero initialized writable data; zero-initialized storage; image versus RAM | These names anchor the Day 2 mental model and Session 02 observations. | Detailed roadmap — Week 1 Day 2; Session 02 Exercise 1 required categories | ISO C99 qualification/initialization; GNU Binutils; selected ELF, compiler, linker, and startup documentation | `PRESERVE_AND_RESTRUCTURE` | M01-CR-006, M01-CR-008, M01-CR-009, M01-CR-012 | Flash/image versus runtime-RAM table plus `size`, `nm`, and section-header questions | Treating a function-pointer object as code; treating `size` columns as literal section names | No linker-script authoring or ELF internals | `DETAILED` |
+| L02-04 | Flash and RAM interpretation | Distinguish load memory, execution memory, and hosted versus bare-metal runtime arrangements. | Load versus execution address; copy/execute-in-place intuition; linker/startup dependence; Linux loader boundary | Avoids deriving physical placement from a section name alone. | Session 02 Exercise 1 scenario and expected observations; detailed roadmap Day 2 | Selected target memory map, linker, runtime/startup, executable-format, and operating-environment documentation | `EXPAND` | M01-CR-009, M01-CR-016 | Small hosted-versus-bare-metal comparison | Assuming all targets execute `.text` from Flash or all writable data starts in RAM image form | No virtual-memory theory, MMU/MPU, or linker-script syntax | `CORE` |
+| L02-05 | Hello World binary-size baseline activity | Perform the roadmap's guided baseline without creating another assignment. | Minimal build; compiler version and command; exact binary; GNU `size`; build-specific summary | The approved source map identified this missing Day 2 practical activity. | Detailed roadmap — Week 1 Day 2, Practical-labs, Hello World and `size` baseline | GCC documentation; GNU Binutils `size` documentation | `EXPAND` | M01-CR-012 | Required guided command demonstration with recorded relevant output | Calling the activity a fifth canonical exercise or giving it a solution entry | Guided lesson activity only; no exercise or solution identity | `PRACTICAL_DEMONSTRATION` |
+| L02-06 | Stack mental model | Explain logical active calls and automatic objects without promising a physical layout. | Call chain; conceptual frame; automatic objects; ABI; optimization; non-universal growth direction | Prepares learners for stack reasoning before controlled recursion. | Detailed roadmap — Week 1 Day 2 stack frames; Session 02 Exercise 2 | ISO C99 storage/lifetime; selected ABI and compiler documentation; GDB frame documentation | `PRESERVE` | M01-CR-010, M01-CR-015 | Nested-call diagram and one address-observation caveat | Treating a debugger frame, fixed frame size, downward growth, or `uintptr_t` as portable C | Advanced pointer declarations belong to M03 | `CORE` |
+| L02-07 | Stack overflow and recursion-lab boundaries | Distinguish bounded observation from proof of stack safety or MISRA compliance. | Call depth; large automatic objects; numeric address proxy; configured guard; real limit; Rule 17.2 | Session 02 intentionally uses recursion and contains claims that require careful correction. | Detailed roadmap — Week 1 Day 2 stack overflow; Session 02 Exercise 2 | Target/RTOS stack documentation; selected ABI/compiler evidence; MISRA C:2012 Dir 4.1 and Rule 17.2 | `PRESERVE_AND_RESTRUCTURE` | M01-CR-010, M01-CR-011, M01-CR-015 | Conceptual bounded-depth trace only; reject the complete Stack Depth Monitor | A guard reducing experiment risk is not a deviation, proof, or exact byte measurement | Production worst-case stack analysis is outside this introductory lab | `DETAILED` |
+| L02-08 | Bad pointer, buffer corruption, and stack failure | Use evidence to discriminate plausible causes while acknowledging overlap. | Symptom; dereference site; pointer lifetime/bounds; call depth; backtrace condition; controlled change | DevLinux explicitly asks learners to distinguish stack overflow from bad pointers. | Detailed roadmap — Week 1 Day 2 practical lab, diagnosing stack overflow versus bad pointer | ISO C99 pointer/lifetime/bounds semantics; GNU GDB manual; selected runtime/target documentation | `PRESERVE` | M01-CR-010 | Compact comparison table and short investigation workflow | Treating one signal, crash address, or damaged backtrace as proof | No advanced GDB, sanitizers, or fault-handler implementation | `DETAILED` |
+| L02-09 | Heap and dynamic allocation | Establish allocation contracts, ownership, cleanup, OOM, leaks, fragmentation, and policy limits. | `malloc`; `free`; lifetime; owner; null result; error cleanup; fragmentation; long-running systems; embedded availability | Day 2 requires allocation failure and leaks; Session 02 intentionally allocates. | Detailed roadmap — Week 1 Day 2 OOM/leaks; Session 02 Exercise 1 dynamic allocation | ISO C99 §7.20.3; selected allocator documentation; MISRA C:2012 Dir 4.12 and §§5.4, 6.2.2; official CERT C supplements | `PRESERVE_AND_RESTRUCTURE` | M01-CR-003, M01-CR-004 | Tiny allocation/failure/cleanup fragment and simple fragmentation diagram | Casting `malloc()` as validation; ignoring OOM; claiming lab allocation is MISRA-compliant | No allocator internals, Valgrind, sanitizers, or pool implementation | `DETAILED` |
+| L02-10 | Memory-selection decision model | Compare lifetime, capacity, failure, and evidence considerations for common storage choices. | Automatic; static; dynamic; read-only object; fixed-pool boundary | Turns region facts into bounded engineering decisions without prescribing one universal policy. | Detailed roadmap — Week 1 Day 2 memory failures; Session 02 exercise contexts | ISO C99 storage/allocation semantics; project allocation policy; selected target/runtime documentation | `EXPAND` | M01-CR-003 | Compact decision table | Saying static storage cannot fail at the API/system level or dynamic allocation is always wrong | Fixed-pool design and allocator architecture belong to M02 | `CORE` |
+| L02-11 | Binary-inspection tools | Assign each tool a question, evidence type, limitation, context, and DevLinux status. | `size`; `nm`; `objdump`; `readelf`; linker map; required versus supplementary evidence | Prevents tool overlap and overinterpretation while preserving source-required `size` and `nm`. | Detailed roadmap — Week 1 Day 2 Binutils; Session 02 Exercise 1 verification step | GNU Binutils `size`, `nm`, `objdump`, `readelf`, and linker manuals; selected ELF/object-format documentation | `EXPAND` | M01-CR-006, M01-CR-007, M01-CR-012, M01-CR-015 | Tool-role matrix and short command excerpts; reject complete Memory Segment Analyzer | Inferring physical placement, heap/stack layout, or portable inter-object distance from one output | `readelf` and linker map are supplementary; no ELF internals or linker scripts | `DETAILED` |
+| L02-12 | Basic GDB workflow | Turn a reproducible crash or deep call chain into a tested hypothesis. | Debug build; `run`; `backtrace`; `frame`; `info locals`; arguments; `print`; evidence limits | GDB commands are explicit Day 2 curriculum content. | Detailed roadmap — Week 1 Day 2 GDB Stack Commands | GNU GDB manual — Running, Backtraces, Frames, Examining Data | `PRESERVE` | None | Small independent call-chain debugging sequence | Assuming optimized, corrupt, or symbol-poor frames provide complete evidence | No advanced GDB, remote debugging, watchpoints, or target fault handlers | `PRACTICAL_DEMONSTRATION` |
+| L02-13 | Optimization levels and evidence | Treat optimization options as compiler intents whose effects must be measured. | `-O0`; `-O1`; `-O2`; `-O3`; `-Os`; observable behavior; size/timing/debug trade-offs; existing UB | DevLinux requires comparing optimization effects without a universal ranking. | Detailed roadmap — Week 1 Day 2 optimization levels | GCC Optimize Options; selected compiler version/target documentation; ISO C99 abstract-machine behavior | `PRESERVE_AND_RESTRUCTURE` | M01-CR-013, M01-CR-014 | Rebuild the same independent program and compare `size`; no invented performance benchmark | Claiming level N is always faster/smaller or optimization creates UB in defined code | No optimizer internals, profiling, or benchmark methodology | `DETAILED` |
+| L02-14 | Failure-analysis workflow | Apply symptom → hypothesis → evidence → tool → controlled experiment → root cause → corrective action. | Reproduction; competing hypotheses; proportionate evidence; one-variable change; correction verification | Consolidates the lesson's practical method and keeps it distinct from L01 contract review. | Detailed roadmap — Week 1 Day 2 failure analysis and practical labs | GNU GDB, Binutils, compiler, runtime, target, and allocator documentation as applicable to each hypothesis | `MOVE_WITHIN_LESSON` | M01-CR-007, M01-CR-013 | Six independent scenario cards: stack exhaustion, bad pointer, OOM, leak, section growth, optimization-sensitive failure | Selecting a tool before defining the question or treating one run as universal proof | No solution implementation or advanced debugging framework | `CORE` |
+| L02-15 | Embedded and Linux applications | Connect the model to memory budgets, startup, long-running services, stack configuration, size regression, and crash triage. | Firmware image/RAM budget; boot initialization; service leaks; task stack; regression; crash evidence | Demonstrates transfer across the approved Embedded/Linux contexts. | Detailed roadmap — Week 1 Day 2 scenarios; Session 02 embedded lab context | Selected target, RTOS, Linux runtime, compiler, linker, and tool documentation for each bounded example | `EXPAND` | M01-CR-009, M01-CR-013 | Application matrix with evidence needed for each claim | Applying a hosted observation directly to a bare-metal target or vice versa | No RTOS API lesson, virtual memory, MMU/MPU, or production linker design | `BOUNDED_REFERENCE` |
+| L02-16 | Key takeaways and references | Close with the three-layer model, failure workflow, and claim-level authority routes. | Language versus artifact versus target; ownership; bounded tool evidence; implementation caveats | Gives newcomers a durable checklist and experienced engineers a concise refresher. | All approved Day 2 and Session 02 sources | Authorities allocated in Section 10.8 below | `PRESERVE_AND_RESTRUCTURE` | M01-CR-016, M01-CR-018 | No new example; evidence-context checklist | Using supplementary notes or stale source paths as authority | Further reading remains concise; no raw theory expansion | `BOUNDED_REFERENCE` |
+
+### 10.5 Current-content action policy
+
+| Action | Meaning |
+| --- | --- |
+| `PRESERVE` | Keep technically correct content substantially unchanged; add only necessary source trace or formatting corrections. |
+| `PRESERVE_AND_RESTRUCTURE` | Retain correct substance but reorganize it for clearer teaching order, ownership, or source traceability. |
+| `EXPAND` | Preserve valid existing material and add missing approved depth, explanation, examples, or references. |
+| `CORRECT` | Replace or rewrite a technically inaccurate, unsupported, or misleading claim. |
+| `MOVE_WITHIN_LESSON` | Retain content but relocate it to the section that correctly owns it. |
+| `DEFER_TO_OTHER_MODULE` | Keep only a boundary note and move lesson-scale treatment to the named later module. |
+| `REMOVE_DUPLICATION` | Remove repeated content already owned and adequately taught elsewhere. |
+
+`REWRITE_FROM_SCRATCH` is not an approved default action. It may be used only after a documented finding that the existing content is technically unusable.
+
+### 10.6 Correction-ID allocation
+
+Each correction has one primary owner below. A lesson-outline row may cite a correction as a secondary teaching reference without taking ownership from the listed artifact or gate. Gate 2 plans every action; it implements none of the corrections.
+
+| Correction ID | Primary owning future artifact | Owning section or later gate | Action type | Gate 2 disposition | Secondary reference, if any |
+| --- | --- | --- | --- | --- | --- |
+| M01-CR-001 | `exercises.md` | Exercise restoration gate, Session 01 source-reference correction register | `RECORD_UNVERIFIED_SOURCE` | Plan only; implement at exercise gate | L01-04 must state that Directive 4.14 remains unverified. |
+| M01-CR-002 | M01-L01 | L01-06 | `CORRECT_SCOPE` | Plan only; implement during Lesson 1 authoring | L01-04 and exercise restoration reference the corrected Dir 4.11 scope. |
+| M01-CR-003 | M01-L02 | L02-09 | `CORRECT_AND_EXPLAIN` | Plan only; implement during Lesson 2 authoring | L01-04 introduces deviation categories; exercise gate labels the intentional lab conflict. |
+| M01-CR-004 | `exercises.md` | Exercise restoration gate, S02-E01 | `CORRECT_RULE_APPLICATION` | Plan only; implement at exercise gate | L02-09 teaches the ISO C `malloc()` conversion boundary. |
+| M01-CR-005 | M01-L01 | L01-07 | `CORRECT_ABSOLUTE_CLAIM` | Plan only; implement during Lesson 1 authoring | L01-14 reinforces the measurement requirement. |
+| M01-CR-006 | M01-L02 | L02-03 | `CORRECT_OBJECT_AND_CODE_CLASSIFICATION` | Plan only; implement during Lesson 2 authoring | L02-11 and later S02-E01 restoration apply the distinction. |
+| M01-CR-007 | M01-L02 | L02-11 | `CORRECT_POINTER_EVIDENCE` | Plan only; implement during Lesson 2 authoring | L02-14 uses it as an evidence-scope example. |
+| M01-CR-008 | M01-L02 | L02-01 | `CORRECT_PLACEMENT_CLAIM` | Plan only; implement during Lesson 2 authoring | L02-03 applies the three-layer model to `.rodata`. |
+| M01-CR-009 | M01-L02 | L02-03 | `CORRECT_IMAGE_RAM_MODEL` | Plan only; implement during Lesson 2 authoring | L02-02, L02-04, and L02-15 reference the corrected model. |
+| M01-CR-010 | M01-L02 | L02-06 | `CORRECT_STACK_ASSUMPTIONS` | Plan only; implement during Lesson 2 authoring | L02-07 and L02-08 apply the boundary. |
+| M01-CR-011 | M01-L02 | L02-07 | `CORRECT_SAFETY_AND_COMPLIANCE_CLAIM` | Plan only; implement during Lesson 2 authoring | Exercise restoration preserves the required recursion while labelling the conflict. |
+| M01-CR-012 | M01-L02 | L02-11 | `CORRECT_TOOL_INTERPRETATION` | Plan only; implement during Lesson 2 authoring | L02-03, L02-05, and L02-13 consume the corrected evidence model. |
+| M01-CR-013 | M01-L02 | L02-13 | `CORRECT_OPTIMIZATION_CLAIM` | Plan only; implement during Lesson 2 authoring | L02-14 and L02-15 use measured, build-specific results. |
+| M01-CR-014 | M01-L01 | L01-10 | `CORRECT_EVIDENCE_OVERCLAIM` | Plan only; implement during Lesson 1 authoring | L01-04, L01-13, and L02-13 preserve the boundary. |
+| M01-CR-015 | M01-L02 | L02-06 | `CORRECT_OPTIONAL_TYPE_AND_PROXY_SCOPE` | Plan only; implement during Lesson 2 authoring | L02-07 and L02-11 apply the same implementation assumption. |
+| M01-CR-016 | M01-L02 | L02-01 | `VERIFY_AND_REWRITE_DISCOVERY_INPUT` | Plan only; implement during Lesson 2 authoring | L02-16 records the notes as non-authoritative. |
+| M01-CR-017 | M01-L01 | L01-05 | `CORRECT_BARR_C_SCOPE` | Plan only; implement during Lesson 1 authoring | L01-07 applies the type-selection boundary. |
+| M01-CR-018 | `exercises.md` | Exercise restoration gate, source-reference correction register | `REPLACE_STALE_REFERENCE_PATH` | Plan only; implement at exercise gate | L01-15 and L02-16 must not repeat the missing `C_Books/` path. |
+| M01-CR-019 | `interview.md` | Interview audit gate, Q1 | `CORRECT_CORRUPTED_WORDING` | Plan only; implement at interview gate | None. |
+
+### 10.7 Example and evidence plan
+
+| Example ID | Lesson/section | Purpose | Type | Exercise-solution leakage risk | Required tool/environment context | Included or rejected | Reason |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| M01-EX-01 | L01-02 | Show the difference between a C99 source baseline and compiler dialect selection. | command demonstration | Low | Compiler name/version and exact `-std` command | `INCLUDED` | Directly supports the baseline without becoming a build-system lesson. |
+| M01-EX-02 | L01-03 | Compare the questions answered by ISO C, MISRA C, and BARR-C. | conceptual | Low | Named standards and applicable sections | `INCLUDED` | Prevents authority confusion. |
+| M01-EX-03 | L01-04 | Trace a tool diagnostic through investigation, guideline status, review, and possible deviation. | conceptual | Low | Selected rule category and tool coverage must be stated | `INCLUDED` | Demonstrates the compliance boundary without a full process. |
+| M01-EX-04 | L01-06 | Review an unrelated device-configuration API for pointer, syntax, range, result, and output behavior. | code snippet | Medium | ISO C99 and the stated API contract | `INCLUDED` | Teaches validation order without implementing either Session 01 parser. |
+| M01-EX-05 | L01-06 | Demonstrate generic external decimal conversion with `strtol()` error evidence. | code snippet | Low | C99 library contract; `errno`, end pointer, and application range | `INCLUDED` | Retains the useful current example while remaining protocol-neutral. |
+| M01-EX-06 | L01-07 | Validate a sensor value before narrowing to an exact-width destination. | code snippet | Low | ISO integer ranges for the selected types | `INCLUDED` | Shows why a cast is not proof. |
+| M01-EX-07 | L01-08 | Classify four small independent expressions by behavior category. | code snippet | Low | ISO C99 clause/annex trace | `INCLUDED` | Builds classification skill without exercise logic. |
+| M01-EX-08 | L01-09 | Relate header declarations, one definition, file-scope internal linkage, and static local state. | code snippet | Low | C99 translation-unit context | `INCLUDED` | Makes scope/linkage/duration distinctions concrete. |
+| M01-EX-09 | L01-10 | Compile an intentionally suspicious independent fragment under the recorded warning policy. | command demonstration | Low | Compiler/version, language mode, and flags | `INCLUDED` | Shows diagnostic evidence and its limitations. |
+| M01-EX-10 | L01-11 | Demonstrate targets, prerequisites, recipes, compile, link, `all`, and `clean`. | code snippet | Low | GNU Make and a simple host compiler | `INCLUDED` | DevLinux directly requires the basic workflow. |
+| M01-EX-11 | L01-12 | Pair one unrelated public declaration with a Doxygen contract. | code snippet | Low | Doxygen command semantics | `INCLUDED` | Demonstrates documentation responsibility. |
+| M01-EX-12 | L01-13 | Walk one small API defect through the reliability review workflow. | conceptual | Low | Contract, ISO rule, selected guidance, and tool context | `INCLUDED` | Integrates Lesson 1 without runtime-debugging scope creep. |
+| M01-EX-13 | L02-01 | Classify declarations across language semantics, emitted section evidence, and physical placement. | conceptual | Low | Selected build/toolchain context for non-language layers | `INCLUDED` | Establishes the central three-layer model. |
+| M01-EX-14 | L02-02 | Show a bounded common startup sequence. | conceptual | Low | Named target/runtime documentation when authored | `INCLUDED` | Explains initialized-data and zeroing support without startup code. |
+| M01-EX-15 | L02-03 | Compare firmware-image and runtime-RAM implications for common regions. | conceptual | Low | Selected compiler/linker/startup conventions | `INCLUDED` | Makes the `.data` versus `.bss` distinction visible. |
+| M01-EX-16 | L02-05 | Compile minimal Hello World, run GNU `size`, and record the command and relevant output. | binary evidence | Low | Compiler/version, flags, target, exact binary, GNU `size` version/format | `INCLUDED` | Required Day 2 guided activity; explicitly not an exercise or solution. |
+| M01-EX-17 | L02-06 | Show nested active calls and the return of the innermost call. | conceptual | Low | No physical-frame assumption | `INCLUDED` | Supports the stack mental model for newcomers. |
+| M01-EX-18 | L02-08 | Compare stack-pressure and bad-pointer clues, then apply basic GDB commands. | debugger workflow | Medium | Exact debug build, input, symbols, and GDB context | `INCLUDED` | Directly supports the DevLinux diagnostic lab without implementing its monitor. |
+| M01-EX-19 | L02-09 | Show allocation, failure handling, ownership cleanup, leak path, and fragmentation concept. | code snippet | Low | C99 allocator contract and documented project policy | `INCLUDED` | Teaches required failure modes with a tiny independent example. |
+| M01-EX-20 | L02-10 | Compare automatic, static, dynamic, read-only, and fixed-pool-boundary choices. | conceptual | Low | Project and target assumptions identified | `INCLUDED` | Converts memory facts into bounded decisions. |
+| M01-EX-21 | L02-11 | Compare `size`, `nm`, `objdump`, `readelf`, and linker-map questions and limits. | command demonstration | Medium | Exact artifact, tool versions/options, object format, target, linker context | `INCLUDED` | Prevents overinterpretation and separates required from supplementary evidence. |
+| M01-EX-22 | L02-13 | Rebuild one independent program at selected optimization levels and compare size evidence. | binary evidence | Low | Exact compiler/version, flags, target, binary, and `size` output | `INCLUDED` | Supports measured claims without inventing a performance benchmark. |
+| M01-EX-23 | L01-06 | Full IPv4 parser implementation. | code snippet | High | Not applicable | `REJECTED` | It would leak S01-E01 solution content. |
+| M01-EX-24 | L01-06 | Full MAC parser implementation. | code snippet | High | Not applicable | `REJECTED` | It would leak S01-E02 solution content. |
+| M01-EX-25 | L02-11 | Full Memory Segment Analyzer implementation. | code snippet | High | Not applicable | `REJECTED` | It belongs exclusively to S02-E01 and its one solution entry. |
+| M01-EX-26 | L02-07 | Full Stack Depth Monitor implementation. | code snippet | High | Not applicable | `REJECTED` | It belongs exclusively to S02-E02 and its one solution entry. |
+
+### 10.8 Source and reference plan
+
+DevLinux remains the scope authority; the references below verify claim families. `Full-Embedded-C-Notes.md` may identify a topic or risky legacy phrasing but cannot occupy either authority column.
+
+| Claim family | Primary authority | Supporting authority | Owning lesson section | Notes or limitations |
+| --- | --- | --- | --- | --- |
+| C99 language baseline and semantics | ISO/IEC 9899:1999 and applicable public WG14 material | GCC C Dialect Options for selected compiler mode | L01-02 | Hosted/freestanding and extensions must be labelled separately. |
+| Behavior taxonomy and required diagnostics | ISO C99 §3.4, §5.1.1.3, and Annex J | Selected compiler diagnostics documentation | L01-08 | A required diagnostic is not the same as runtime handling or a warning for every UB. |
+| Scope, linkage, storage duration, and lifetime | ISO C99 §§6.2.1–6.2.4 and §6.7.1 | BARR-C:2018 module/function practices | L01-09 | Storage duration does not select an executable section. |
+| Integer types and conversions | ISO C99 §§6.2.5, 6.3.1, and §7.18 | BARR-C:2018 §§5.2–5.3; official CERT C where directly applicable | L01-07 | Exact-width typedefs are conditional on implementation support. |
+| MISRA rule/directive/category/compliance/deviation | MISRA C:2012 §§5.3–5.5 and §§6.1–6.6 | Session 01–02 identifiers as provenance only | L01-04 | Directive 4.14 remains unverified in the supplied reference. |
+| BARR-C practices | BARR-C:2018 §§1, 2.2, 4, 5.2–5.3, 6.2, 7, 8 | MISRA only where a distinct safety concern applies | L01-05 | Style and maintainability guidance do not define ISO semantics. |
+| GCC dialects and warnings | GCC C Dialect Options and Warning Options | ISO C99 diagnostic requirements | L01-02, L01-10 | Record compiler/version/options; `-Wall` is not every warning. |
+| GNU Make | GNU Make manual | DevLinux Day 1 and Session 01 required targets | L01-11 | Keep to target, prerequisite, recipe, compile/link, `all`, `clean`, and directly supported docs target. |
+| Doxygen | Doxygen manual — documenting code and special commands | BARR-C:2018 §2.2 | L01-12 | Generated documentation is only as accurate as the source contract. |
+| Allocation and release contracts | ISO C99 §7.20.3 | MISRA C:2012 Dir 4.12; official CERT C allocation guidance; selected allocator documentation | L02-09 | Availability, timing, fragmentation, and policy are implementation/project dependent. |
+| GNU Binutils evidence | GNU Binutils manuals for `size`, `nm`, `objdump`, and `readelf` | DevLinux Day 2 and Session 02 required commands | L02-05, L02-11 | `size`/`nm` are source-required; `objdump`/`readelf` are supplementary where needed. |
+| ELF and linker evidence | Selected executable/object-format specification and GNU linker manual | Target linker map and toolchain documentation | L02-03, L02-04, L02-11 | ELF is not universal; section membership alone does not prove physical placement. |
+| Startup and initialized-data behavior | Selected compiler/runtime startup and target documentation | ISO C99 initialization requirements | L02-02, L02-03, L02-04 | Exact sequence and copy/zero mechanism require a selected environment. |
+| Stack frames and ABI behavior | Selected target ABI and compiler documentation | GNU GDB frame documentation | L02-06, L02-07 | Frame layout, direction, and address proxy are not portable C guarantees. |
+| GDB workflow | GNU GDB manual — Running, Backtraces, Frames, Arguments, Locals, and Examining Data | Selected debug-symbol/compiler documentation | L02-08, L02-12, L02-14 | Optimization, corruption, and missing symbols bound the evidence. |
+| Optimization options and evidence | GCC Optimize Options for the selected version | ISO C99 abstract-machine requirements; target measurements | L02-13 | Option levels express intent, not a universal size or speed ranking. |
+
+### 10.9 Approved Lesson-Outline Gate Record
+
+The `LESSON_OUTLINE` gate was human-approved before `LESSON_1_AUTHORING` began. The criteria below are retained as historical review evidence.
+
+`LESSON_OUTLINE` may be approved only when:
+
+- both lesson profiles and their topic-appropriate workflows are explicit;
+- every approved M01 concept has exactly one planned owner or an explicit forward boundary;
+- the teaching order is logical for newcomers and remains useful as a refresher for experienced engineers;
+- every major planned section identifies an appropriate official verification authority;
+- every planned section has exactly one current-content action from the approved action policy;
+- all M01-CR-001 through M01-CR-019 have exactly one primary owner;
+- examples and demonstrations improve understanding without leaking any of the four exercise solutions;
+- the Hello World `size` baseline remains a guided lesson activity rather than a fifth exercise or solution;
+- M01-L01 and M01-L02 do not duplicate concept ownership;
+- later-module and artifact boundaries are explicit;
+- no lesson, exercise, solution, interview, roadmap, session, supplementary note, or reference PDF has changed in Gate 2; and
+- the user explicitly approves Lesson 1 authoring.
+
+Gate 2 status: `APPROVED`.
+The current active gate is `LESSON_1_AUTHORING`.
+
+## 11. Lesson 1 Authoring Review Record
+
+| Field | Value |
+| --- | --- |
+| Artifact path | `modules/M01-coding-standards-memory-foundation/01-high-reliability-coding-standards.md` |
+| Status | `DRAFT` |
+| Review state | `HUMAN_REVIEW_PENDING` |
+| Approved outline used | Section 10.3 — Detailed outline for M01-L01 High-Reliability Coding Standards |
+| Corrections implemented in Lesson 1 | M01-CR-002, M01-CR-005, M01-CR-014, and M01-CR-017; M01-CR-001, M01-CR-003, and M01-CR-018 handled only as approved boundary references. |
+| Protected artifacts | Unchanged during Lesson 1 authoring: Lesson 2, `exercises.md`, `solutions/`, `interview.md`, `ARCHITECTURE.md`, and `docs/C Advanced/`. |
+| Next authorization boundary | Lesson 2 authoring is not authorized until Lesson 1 receives explicit human approval. |
+
+## 12. Solution-Validation Review Record
+
+| Field | Result |
+| --- | --- |
+| Solution paths | `solutions/session-01-exercise-01-ipv4-parser/`, `solutions/session-01-exercise-02-mac-parser/`, `solutions/session-02-exercise-01-memory-segment-analyzer/`, and `solutions/session-02-exercise-02-stack-depth-monitor/` |
+| Files rewritten | Each solution's `main.c` and `Makefile` only. |
+| Redundant files deleted | None; each solution directory already contained only its canonical `main.c` and `Makefile`. |
+| Build and runtime result | All four build with ISO C99, `-Wall -Wextra -Wpedantic -Werror`, and pass their deterministic self-checks. |
+| Static-analysis result | `cppcheck` and `clang-tidy` completed without diagnostics for all four `main.c` files. |
+| Exact build evidence | `HUMAN_VERIFICATION_PENDING`: regenerate the compiler version, target triple, exact compile command, `size`, and `nm` output from the reviewed Memory Segment Analyzer binary before treating them as evidence. |
+| Protected artifacts | Lessons, `exercises.md`, `interview.md`, `ARCHITECTURE.md`, and `docs/C Advanced/` remain unchanged during solution validation. |
+| Review state | `HUMAN_REVIEW_PENDING` — do not mark solutions approved or begin the interview audit. |

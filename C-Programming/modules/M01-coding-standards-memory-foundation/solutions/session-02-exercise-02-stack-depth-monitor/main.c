@@ -1,13 +1,13 @@
 /*
- * Session 02 / Exercise 2 reference solution.
+ * Session 02 / Exercise 2 — one reviewed implementation path.
  *
- * Recursion is intentionally required by this teaching exercise. The guard
- * reduces experimental risk but does not make recursion MISRA C:2012 Rule
- * 17.2 compliant. Reported magnitudes are observations from one build and
- * run, not exact physical stack usage or a fixed frame-size guarantee.
+ * The reported address magnitude is one build/run observation. It is neither
+ * exact stack usage nor a portable frame-size measurement. Recursion is
+ * intentionally required here but conflicts with MISRA C:2012 Rule 17.2.
  */
 
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,28 +31,32 @@ static uintptr_t numeric_magnitude(uintptr_t left_address,
 }
 
 /**
- * @brief Recurse while reporting a build-specific stack-address observation.
+ * @brief Recurse while reporting a build-specific stack-address proxy.
  *
- * @param[in] current_depth Current recursive depth, beginning at zero.
- * @param[in] max_depth Maximum depth accepted by this controlled run.
- * @param[in] stack_base_addr Converted address of a local marker in main().
+ * @param[in] current_depth Current depth for this invocation.
+ * @param[in] max_depth Highest requested depth for the bounded run.
+ * @param[in] stack_base_addr Converted address of a local object in `main`.
  * @param[in] stack_limit_bytes Source-defined guard threshold compared with
- *                               this build-specific numeric address proxy; it
- *                               is not an exact or portable stack-byte count.
- * @return 0 when max_depth is reached, or -1 when the guard is reached.
+ *                               the address proxy, not an exact byte count.
+ * @return `0` when `max_depth` is reached before the guard; `-1` when the
+ *         observed magnitude reaches or exceeds the guard.
+ *
+ * There is no caller-owned output object to update. The guard stops another
+ * recursive call but does not prove the actual overflow boundary or make this
+ * required recursion compliant with MISRA C:2012 Rule 17.2.
  */
 int8_t recurse_with_monitor(uint32_t current_depth,
                             uint32_t max_depth,
                             const uintptr_t stack_base_addr,
                             uint32_t stack_limit_bytes)
 {
-    uint8_t stack_marker = 0U;
-    uintptr_t current_address = (uintptr_t)(void *)&stack_marker;
-    uintptr_t observed_magnitude = numeric_magnitude(current_address,
-                                                     stack_base_addr);
+    uint8_t stack_marker = UINT8_C(0);
+    const uintptr_t current_address = (uintptr_t)(void *)&stack_marker;
+    const uintptr_t observed_magnitude = numeric_magnitude(current_address,
+                                                           stack_base_addr);
 
-    (void)printf("[Depth %" PRIu32 "] stack_marker: %p, observed address magnitude: %" PRIuPTR
-                 "\n",
+    (void)printf("[Depth %" PRIu32 "] stack_marker: %p, "
+                 "observed address magnitude: %" PRIuPTR "\n",
                  current_depth, (void *)&stack_marker, observed_magnitude);
 
     if ((uintmax_t)observed_magnitude >= (uintmax_t)stack_limit_bytes)
@@ -68,31 +72,47 @@ int8_t recurse_with_monitor(uint32_t current_depth,
         return STACK_MONITOR_SUCCESS;
     }
 
-    return recurse_with_monitor(current_depth + 1U, max_depth,
+    /* current_depth < max_depth <= UINT32_MAX, so this increment cannot wrap. */
+    return recurse_with_monitor(current_depth + UINT32_C(1), max_depth,
                                 stack_base_addr, stack_limit_bytes);
+}
+
+static bool result_matches(int8_t actual_result,
+                           int8_t expected_result,
+                           const char *p_case_name)
+{
+    if (actual_result != expected_result)
+    {
+        (void)fprintf(stderr, "FAIL: %s\n", p_case_name);
+        return false;
+    }
+
+    return true;
 }
 
 int main(void)
 {
-    uint8_t stack_base_marker = 0U;
-    uintptr_t stack_base_addr = (uintptr_t)(void *)&stack_base_marker;
-    int8_t bounded_result;
-    int8_t guard_result;
+    uint8_t bounded_base_marker = UINT8_C(0);
+    uint8_t guarded_base_marker = UINT8_C(0);
+    const uintptr_t bounded_base_addr =
+        (uintptr_t)(void *)&bounded_base_marker;
+    const uintptr_t guarded_base_addr =
+        (uintptr_t)(void *)&guarded_base_marker;
+    const int8_t bounded_result = recurse_with_monitor(0U, 3U,
+                                                        bounded_base_addr,
+                                                        UINT32_MAX);
+    const int8_t guarded_result = recurse_with_monitor(0U, 8U,
+                                                        guarded_base_addr,
+                                                        UINT32_C(1));
 
-    (void)puts("=== Bounded stack-monitor run ===");
-    bounded_result = recurse_with_monitor(0U, 3U, stack_base_addr,
-                                          UINT32_MAX);
-
-    (void)puts("=== Guard stack-monitor run ===");
-    guard_result = recurse_with_monitor(0U, 8U, stack_base_addr, 1U);
-
-    if ((bounded_result != STACK_MONITOR_SUCCESS) ||
-        (guard_result != STACK_MONITOR_LIMIT_REACHED))
+    if ((!result_matches(bounded_result, STACK_MONITOR_SUCCESS,
+                         "bounded recursion")) ||
+        (!result_matches(guarded_result, STACK_MONITOR_LIMIT_REACHED,
+                         "guarded recursion")))
     {
-        (void)fputs("Stack monitor tests failed.\n", stderr);
         return EXIT_FAILURE;
     }
 
-    (void)puts("Stack monitor tests passed.");
+    (void)puts("PASS: stack-monitor self-checks.");
     return EXIT_SUCCESS;
 }
